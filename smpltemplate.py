@@ -5,13 +5,63 @@
  (c) copyright 2019 heejune@seoultech.ac.kr
 
  Prerequisite: SMPL model 
- In : SMPL paramters(cam, shape, pose) for a image 
- Out: body mask  (binary or labeled) 
-      updated joint json file 
-      [optionally the validating images]
+ In : SMPL params fixed 
+ Out: body mask (binary and labeled) 
+      camera, pose and shape paramters  
 
-    1.1 pre-calcuated fit data (camera, pose, shape)
-   
+camera
+ - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
+ - cam.rt: [0. 0. 0.]
+ - cam.k: [0. 0. 0. 0. 0.]
+ - cam.c: [ 96. 128.]    # depending on the image size 
+ - cam.f: [5000. 5000.]  # fixed 
+
+betas type: <type 'numpy.ndarray'> shape: (10,)
+#[ 0.86333032  0.66983643  0.03516618 -0.0108483   0.08504395 -0.03625412
+ -0.14589336  0.05147145 -0.09457806 -0.23076016]
+#  what is the  default betas?  all zeros?
+
+pose: <type 'numpy.ndarray'> shape: (72,)
+   values: [ 2.23741497e+05  1.76197090e+04 -2.87053045e+04 -3.11457680e+01
+ -1.03651321e+00  1.07745803e+01 -3.30462125e+01 -8.75933329e-02
+ -8.42849899e+00  1.95213130e+01 -4.77103449e-01 -6.65209831e-01
+  4.66690547e+01 -1.91283890e+00 -9.85186186e+00  5.53364988e+01
+  2.60572518e+00  5.70655214e+00 -4.78080913e+00  9.61015082e-01
+  8.05987811e-01 -5.61919083e+00  5.05691714e+00 -3.50657313e+00
+ -1.09920714e+01 -8.33753237e+00  1.14504502e+01  5.36324998e-01
+ -1.87318192e+00  3.58527364e-01 -1.63665236e+01  1.15114489e+01
+  1.20531329e+01 -9.78285335e+00  5.56664737e+00 -2.08030024e+01
+ -2.07777378e+01  1.07819986e+01  1.71939020e+00  2.91112580e+00
+  1.33954258e+00 -2.73712556e+01  6.52049103e-01  4.28826740e+00
+  2.79391512e+01  1.72933816e+00  2.74343466e+00 -3.25453137e+00
+  8.51945524e+00 -1.07478619e+01 -5.39806102e+01  1.46659045e+01
+  1.64629554e+01  5.45966113e+01  1.25128178e+01 -4.29796685e+01
+  9.27542674e+00  3.19900858e+00  4.31000189e+01 -8.98971514e+00
+ -4.56694457e-01  4.03708262e-01  7.01004288e+00 -7.40812882e-02
+  1.92158331e+00 -3.77941487e+00 -1.32085765e+01 -4.55730154e+00
+ -1.27710507e+01 -8.56575127e+00  6.76882057e+00  1.25808406e+01]
+
+
+
+pose: <type 'numpy.ndarray'> [ 3.90502580e+03  3.07521935e+02 -5.01002076e+02 -5.43596199e-01
+ -1.80905683e-02  1.88051902e-01 -5.76765214e-01 -1.52879206e-03
+ -1.47105058e-01  3.40711186e-01 -8.32702606e-03 -1.16101018e-02
+  8.14528663e-01 -3.33853369e-02 -1.71947427e-01  9.65804101e-01
+  4.54784837e-02  9.95981237e-02 -8.34408602e-02  1.67728773e-02
+  1.40671410e-02 -9.80733813e-02  8.82598541e-02 -6.12012466e-02
+ -1.91847837e-01 -1.45517391e-01  1.99848057e-01  9.36063708e-03
+ -3.26931920e-02  6.25748297e-03 -2.85649724e-01  2.00912686e-01
+  2.10366854e-01 -1.70743001e-01  9.71563249e-02 -3.63080885e-01
+ -3.62639935e-01  1.88181376e-01  3.00090202e-02  5.08087301e-02
+  2.33794285e-02 -4.77718530e-01  1.13804037e-02  7.48443854e-02
+  4.87630179e-01  3.01826448e-02  4.78819676e-02 -5.68022880e-02
+  1.48692544e-01 -1.87585578e-01 -9.42139379e-01  2.55968321e-01
+  2.87332777e-01  9.52890628e-01  2.18389869e-01 -7.50136726e-01
+  1.61886736e-01  5.58332325e-02  7.52237238e-01 -1.56900128e-01
+ -7.97082195e-03  7.04603839e-03  1.22348329e-01 -1.29296239e-03
+  3.35379557e-02 -6.59632333e-02 -2.30533150e-01 -7.95399168e-02
+ -2.22896883e-01 -1.49500562e-01  1.18138205e-01  2.19577092e-01]
+
 """
 from __future__ import print_function
 import sys
@@ -67,29 +117,37 @@ cloth_label_dict = {"background": 0,
         }
 
 # To understand and verify the SMPL itself 
-def _examine_smpl(model):
+def _examine_smpl_template(model, detail = False):
 
-    print(">>>> SMPL <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    print(">> SMPL Template  <<<<<<<<<<<<<<<<<<<<<<")
     print(type(model))
     print(dir(model))
     #print('kintree_table', model.kintree_table)
-    #print('J:', model.J)
-    #print('v_template:', model.v_template)
-    #print('J_regressor:', model.J_regressor)
-    #print('shapedirs:', model.shapedirs)
-    #print('weights:', model.weoptimize_on_jointsights)
-    #print('bs_style:', model.bs_style)
+    print('pose:', model.pose)
+    if detail:
+        print('posedirs:', model.posedirs)
+    print('betas:', model.betas)
+    print('shape(model):', model.shape)
+    if detail:
+        print('shapedirs:', model.shapedirs)
+
+    #print('bs_style:', model.bs_style)  # f-m-n
     #print('f:', model.f)
     print('V template :', type(model.v_template))
     print('V template :', model.v_template.shape)
+    #print('weights:', model.weoptimize_on_jointsights)
     print('W type:', type(model.weights))
-    print('W value:', type(model.weights.r))
     print('W shape:', model.weights.r.shape)
-    #parts = np.count_nonzero(model.weights.r, axis =1)
-    parts = np.argmax(model.weights.r, axis=1)
-    print("        :",  parts.shape, parts[:6000])
+    if detail:
+        print('W value:')
+        print(model.weights.r)
+        #parts = np.count_nonzero(model.weights.r, axis =1)
+        parts = np.argmax(model.weights.r, axis=1)
+        print("        :",  parts.shape, parts[:6000])
 
-
+    #print('J:', model.J)
+    #print('v_template:', model.v_template)
+    #print('J_regressor:', model.J_regressor)
 
 # To understand and verify the paramters
 
@@ -117,7 +175,8 @@ def _examine_smpl_params(params):
     # convert  within 
     #pose = pose % (2.0*np.pi)
 
-    print('\t\tvalues:', pose*180.0/np.pi) # degree
+    print('\t\tvalues (in degree):')
+    print(pose*180.0/np.pi) # degree
     print('>> betas')
     betas = params['betas']
     print('\ttype:', type(betas))
@@ -238,77 +297,9 @@ def cvt_joints_np2json(joints_np):
     return joints_json
 
 
+def calculate_joints(cam, model, sv, betas, h , w):
 
-#
-# SMPL => mask  
-#
-def smpl2maskcore(cam,      # camera model, Chv
-          betas,    # shape coef, numpy
-          n_betas,  # num of PCA
-          pose,     # angles, 27x3 numpy
-          imRGB,   # img numpy
-          model,    # SMPL model 
-          viz = False):     # visualize or not  
-
-    for which in [cam,  betas,  pose, imRGB, model]:
-        if which  is None:
-            print( retrieve_name(which) ,  'is  None')
-            exit()
-
-    h, w = imRGB.shape[0:2]
-
-    print('betas:', type(betas), betas)
-    print('pose:', type(pose), pose)
-
-    # 1. build body model  
-    sv = verts_decorated(  # surface vertices
-        trans=ch.zeros(3),
-        pose=ch.array(pose),
-        v_template=model.v_template,
-        J=model.J_regressor,
-        betas=ch.array(betas),
-        shapedirs=model.shapedirs[:, :, :n_betas],
-        weights=model.weights,
-        kintree_table=model.kintree_table,
-        bs_style=model.bs_style,
-        f=model.f,
-        bs_type=model.bs_type,
-        posedirs=model.posedirs,
-        want_Jtr = not viz) # need J_transformed for reposing based on vertices 
-
-    #sv_r = sv.r.copy()
-
-    # 2. Pose to standard pose   
-    if True:   # make standard pose for easier try-on 
-        sv.pose[:] = 0.0    
-        sv.pose[0] = np.pi  
-        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
-        sv.pose[16*3+2] = -7/16.0*np.pi  
-        sv.pose[17*3+2] = +7/16.0*np.pi 
-
-    # 3. render the model with parameter
-    im3CGray = cv2.cvtColor(cv2.cvtColor(imRGB, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)  # 3 channel gray 
-    im3CBlack = np.zeros_like(imRGB)  # uint8 type, right? 
-    imBackground = im3CBlack
-
-    dist = np.abs(cam.t.r[2] - np.mean(sv.r, axis=0)[2])
-    im = (render_model(
-        sv.r, model.f, w, h, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
-    if False:
-        plt.imshow(im[:,:,::-1])  # , cmap='gray')
-        plt.suptitle('rendered')
-        _ = raw_input('next?')
-
-    # 4. binary mask 
-    imBinary = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)  # gray silhouette  
-    imBinary[imBinary > 0] = 255  # binary (0, 1)
-    if False:
-        plt.imshow(imBinary)  # , cmap='gray')
-        plt.suptitle('binary mask')
-        _ = raw_input('next?')
-
-    ###############################
-    # 5. new 2d joints 
+    # 1. get the joint locations
     smpl_ids = [8, 5, 2, 1, 4, 7, 21, 19, 17, 16,   18,   20] # ,   12 ] # index in Jtr # @TODO correct neck  
     #                                         lsh,lelb,   lwr, neck
 
@@ -341,11 +332,11 @@ def smpl2maskcore(cam,      # camera model, Chv
     Jtr = ch.vstack((Jtr, sv[reye_id]))
     smpl_ids.append(len(Jtr) - 1)
 
-    # project SMPL joints on the image plane using the estimated camera
+    # 2. project SMPL joints on the image plane using the estimated camera
     cam.v = Jtr
 
     joints_np_wo_confidence = cam.r[smpl_ids]  # get the projected value  
-    print(joints_np_wo_confidence)
+    #print(joints_np_wo_confidence)
     joints_np = np.zeros([18, 3])
     joints_np[:,:2] =  joints_np_wo_confidence
     joints_np[:,2] =  1.0 
@@ -355,122 +346,166 @@ def smpl2maskcore(cam,      # camera model, Chv
             joints_np[i, 2]  = 0.0 
 
     #print(joints_np)
+    return joints_np
 
+
+
+###############################################################################
+# rendering with color  
+# 
+# @TODO: Texture rendering might be better for clearer segmentation 
+#
+# no light  setting needed for ColorRenderer
+###############################################################################
+def render_with_label(vertices, faces, labelmap,
+                    cam, height, width, near = 0.5,  far = 25, bDebug = False):
+
+    # 1. check labelmap 
+    if bDebug:
+        print('label :min:', np.amin(labelmap), 'max:', np.amax(labelmap), 'avg:', np.mean(labelmap))
+        print('labelshape:', labelmap.shape)
+
+    # 2. setup color renderer
+    from opendr.renderer import ColoredRenderer
+    rn = ColoredRenderer()
+    rn.camera = cam
+    rn.frustum = {'near': near, 'far': far, 'width': width, 'height': height}
+    rn.bgcolor = ch.zeros(3)
+
+    # 3. VC become the brightness of vertices 
+    # OpenGL uses float for processing, so  convert it to float and then revert it to integer
+    # in this rendering process, boundary gets blurred,  so be carefull if you need clear boundary 
+    vc = np.zeros(vertices.shape)
+    labelmap_float = labelmap.astype(np.float)/23.0
+    vc[:,0], vc[:,1],vc[: ,2] = labelmap_float, labelmap_float, labelmap_float #  gray color
+    rn.vc = vc   # giving the albera, FIXME: far -> bright? No! so you should  use gray_r for display
+    rn.set(v=vertices, f=faces)
+
+    # get one channel for segmentation 
+    img = (rn.r[:,:,0]*23.0).astype('uint8') 
+    return img
+
+#
+# SMPL => mask  
+#
+def smpl2maskcore(cam,      # camera model, Chv
+          betas,    # shape coef, numpy
+          n_betas,  # num of PCA
+          pose,     # angles, 27x3 numpy
+          imRGB,   # img numpy
+          model,    # SMPL model 
+          viz = False):     # visualize or not  
+
+    for which in [cam,  betas,  pose, imRGB, model]:
+        if which  is None:
+            print( retrieve_name(which) ,  'is  None')
+            exit()
+
+    h, w = imRGB.shape[0:2]
+
+    # 1. Pose to standard pose   
+    if True:   # make standard pose for easier try-on 
+        pose[:] = 0.0    
+        pose[0] = np.pi  
+        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
+        pose[16*3+2] = -7/16.0*np.pi  
+        pose[17*3+2] = +7/16.0*np.pi 
+        betas[:] = 0.0
+        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
+        cam.t = [0., 0.4, 25.]
+        cam.rt =  [0.,  0.,  0.]
+        cam.k = [0.,  0., 0.,  0.,  0.]
+        cam.f = [5000.,  5000.]
+        cam.c =  [ 96., 128.]    # depending on the image size 
+
+    print('Final pose and betas ')
+    print('pose:', type(pose), pose)
+    print('betas:', type(betas), betas)
+
+    # 2. build body model  
+    sv = verts_decorated(  # surface vertices
+        trans=ch.zeros(3),
+        pose=ch.array(pose),
+        v_template=model.v_template,
+        J=model.J_regressor,
+        betas=ch.array(betas),
+        shapedirs=model.shapedirs[:, :, :n_betas],
+        weights=model.weights,
+        kintree_table=model.kintree_table,
+        bs_style=model.bs_style,
+        f=model.f,
+        bs_type=model.bs_type,
+        posedirs=model.posedirs,
+        want_Jtr = not viz) # need J_transformed for reposing based on vertices 
+
+    #sv_r = sv.r.copy()
+    dist = np.abs(cam.t.r[2] - np.mean(sv.r, axis=0)[2])
+
+    # 3. render the model with parameter
+    h = h*3//2  # extended for full body 
+    print("output size (hxw):", h,  w)
+    im3CGray = cv2.cvtColor(cv2.cvtColor(imRGB, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)  # 3 channel gray 
+    im3CBlack = np.zeros([h, w, 3], dtype = np.uint8)   
+    imBackground = im3CBlack
+    im = (render_model(
+        sv.r, model.f, w, h, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
+
+
+
+    # 4. binary mask 
+    imBinary = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)  # gray silhouette  
+    imBinary[imBinary > 0] = 255  # binary (0, 1)
+    # @TODO: check any noisy pixels,  if yes, filtering or get contours and redrawing with contours 
+
+
+
+    # 4'. segmentation information of  human body 
+    bodyparts = np.argmax(model.weights.r, axis=1)
+    print(np.unique(bodyparts))  # will list all the joints nmbers 
+    imPart = render_with_label(sv.r,  model.f,  bodyparts, cam,  height=h, width=w, near= 0.5, far= 40, bDebug = True)
+    print("impart:", np.amax(imPart), np.amin(imPart), np.mean(imPart))
+    print("       ", np.unique(imPart))
+
+
+    # 5. new 2d joints for template 
+    joints_np = calculate_joints(cam, model, sv, betas, h, w)
     # check the joints 
     joints_np_int = joints_np.astype(int)
+    imJoint = im.copy()
     for i in range(joints_np_int.shape[0]):   
-        cv2.circle(im, tuple(joints_np_int[i,:2]), 2, (0, 0, 255), -1) # 2D joint White
+        cv2.circle(imJoint, tuple(joints_np_int[i,:2]), 2, (0, 0, 255), -1) # 2D joint White
 
-    plt.imshow(im[:,:,::-1])  # , cmap='gray')
-    plt.suptitle('joint check')
+    if True:
+        plt.subplot(2,2,1)
+        plt.imshow(im[:,:,::-1])  # , cmap='gray')
+        plt.title('rendered')
+        plt.subplot(2,2,2)
+        plt.imshow(imBinary)  # , cmap='gray')
+        plt.title('binary mask')
+        plt.subplot(2,2,3)
+        plt.imshow(imPart) # , cmap='gray')
+        plt.title('part mask')
+        plt.subplot(2,2,4)
+        plt.imshow(imJoint[:,:,::-1])  # , cmap='gray')
+        plt.title('joints')
+        plt.suptitle('SMPL Template Check')
     #_ = raw_input('next?')
-
 
     # 6. convert format 
     joints_json = cvt_joints_np2json(joints_np)  # json joints 
     #print(joints_json)
     #json.dumps(joints_json) 
 
-    return imBinary, joints_json
+    params = {'cam_t': cam.t.r,   
+              'cam_rt': cam.rt.r,   
+              'cam_f': cam.f.r,   
+              'cam_k': cam.k.r,   
+              'cam_c': cam.c.r,   
+              'pose': sv.pose.r,
+              'betas': sv.betas.r}
 
+    return imBinary, imPart, joints_json, params
 
-    # checking the redering result, but we are not using this.
-    # we could drawing the points on it
-    #print('th:', th,  '  tw:', tw)
-    # plt.figure()
-    img2 = img3CGray.copy()
-    '''
-    plt.imshow(img2)
-    plt.hold(True)
-    # now camera use only joints
-    plt.plot(cam.r[:,0], cam.r[:, 1], 'r+', markersize=10) # projected pts 
-    '''
-    # project all vertices using camera
-    cam.v = sv.r  
-    #print('>>>>SV.R:',  type(sv.r))
-    '''
-    print('sv.r:', sv.r.shape)
-    plt.plot(cam.r[:,0], cam.r[:, 1], 'b.', markersize=1) # projected pts 
-    plt.show()
-    plt.hold(False)
-    plt.pause(3)
-    '''
-    # 1.2 vertices
-    vertices = np.around(cam.r).astype(int)
-    for idx, coord in enumerate(vertices):
-        cv2.drawMarker(img2, tuple(coord), [0, 255, 0], markerSize=1)
-        # cv2.circle(im, (int(round(uv[0])), int(round(uv[1]))), 1, [0, 255, 0]) # Green
-
-    # Partmap for vertices
-    ###################################################
-    body_colormap = {   0: (255, 0, 0),
-                        1: (0,255, 0),  # lhip
-                        2: (0,0, 255),  # rhip
-                        3: (255, 0, 0),     
-                        4: (0, 0, 255),
-                        5: (0,255, 0),  # lknee
-                        6: (0,255, 0),  # rknee
-                        7: (0, 255, 0), # lankle
-                        8: (0,0, 255),  # rankle
-                        9: (255, 0, 0),
-                        10: (0,255, 0), # lfoot
-                        11: (0,0, 255), # rfoot
-                        12: (0,255, 0), # neck ******
-                        # arms  
-                        13: (0,255, 0), # shoulder
-                        14: (0,255, 0), # shoulder 
-                        15: (255,  0, 0),#  head *****
-                        16: (0, 0, 255), # back arm 
-                        17: (0, 0, 255),
-                        18: (0,255, 0), # fore-arm
-                        19: (0,255, 0),
-                        20: (0,0, 255), # wrist
-                        21: (0,0, 255),
-                        22: (0,255, 0), # hands
-                        23: (0,255, 0)  }
-
-    use_partmap = True
-    check_partmap  =  True 
-    if use_partmap:
-        bodyparts = np.argmax(model.weights.r, axis=1)
-        if check_partmap:
-            #bodypartmap = graphutil.build_bodypartmap(sv.r, cam, bodyparts, h, w, False)
-            bodypartmap = graphutil.build_bodypartmap_2d(img3CGray, cam.r, bodyparts, body_colormap, h, w, False)
-            print('part-max:', np.amax(bodyparts))
-            plt.suptitle('body partmap')
-            plt.subplot(1, 2, 1)
-            plt.imshow(img3CGray[:, :, ::-1])  # , cmap='gray')
-            plt.subplot(1, 2, 2)
-            plt.imshow(bodypartmap[:,:,::-1])  # , cmap='gray')
-            _ = raw_input('quit?')
-            #exit()
-
-
-    '''
-
-    # DEPTH MAP  
-
-    use_depthmap = True
-    check_depthmap = True 
-    if use_depthmap:
-        bodydepth = graphutil.build_depthmap2(sv.r, cam)
-        if check_depthmap:
-            # depth in reverse way
-            plt.suptitle('depthmap')
-            plt.subplot(1, 2, 1)
-            plt.imshow(img[:, :, ::-1])  # , cmap='gray')
-            plt.subplot(1, 2, 2)
-            depthmap = graphutil.build_depthimage(sv.r,  model.f,  bodydepth, cam,  height=h, width=w) #, near= 0.5, far= 400)
-            #plt.imshow(depthmap, cmap='gray')
-            plt.imshow(depthmap)
-            plt.draw()
-            plt.show()
-
-            #plt.imshow(depthmap, cmap='gray_r') # the closer to camera, the brighter 
-            _ = raw_input('quit?')
-            exit()
-
-    '''
 
 #######################################################################################
 # load dataset dependent files and call the core processing 
@@ -481,9 +516,9 @@ def smpl2maskcore(cam,      # camera model, Chv
 # out mask image 
 # ind : image index 
 #######################################################################################
-def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outimg_path, outjoint_path, ind):
+def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outpartimg_path, outjoint_path,  outparam_path, ind):
 
-    if smpl_model is None or inmodel_path is None or inimg_path is None or outimg_path is None:
+    if smpl_model is None or inmodel_path is None or inimg_path is None or outbinimg_path is None or outpartimg_path is None:
         print('There is None inputs'), exit()
 
     plt.ion()
@@ -542,7 +577,7 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outimg_path, outjoint
     betas = params['betas']
     n_betas = betas.shape[0] #10
     pose  = params['pose']    # angles, 27x3 numpy
-    img_mask, joints_json  = smpl2maskcore(params['cam'],      # camera model, Ch
+    img_mask, img_part, joints_json, params  = smpl2maskcore(params['cam'],      # camera model, Ch
                  betas,    # shape coeff, numpy
                  n_betas,  # num of PCA
                  pose,     # angles, 27x3 numpy
@@ -550,12 +585,19 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outimg_path, outjoint
                  smpl_model, # SMPL
                  viz = True)    # display   
 
-    # 3.2 save result for checking
-    if outimg_path is not None:
-       cv2.imwrite(outimg_path, img_mask)
+    # 3.2 save output result
+    if outbinimg_path is not None:
+       cv2.imwrite(outbinimg_path, img_mask)
+    if outpartimg_path is not None:
+       cv2.imwrite(outpartimg_path, img_part)
     if outjoint_path is not None:
         with  open(outjoint_path, 'w') as joint_file:
             json.dump(joints_json, joint_file)
+
+    if outparam_path is not None:
+        with open(outparam_path, 'w') as outf:
+            pickle.dump(params, outf)
+
 
 
 if __name__ == '__main__':
@@ -568,7 +610,7 @@ if __name__ == '__main__':
     #print(base_dir)
     dataset = sys.argv[2]
     idx_s = int(sys.argv[3])
-    idx_e= int(sys.argv[4])
+    #idx_e= int(sys.argv[4])
 
     if not exists(base_dir):
         print('No such a directory for base', base_path, base_dir), exit()
@@ -620,8 +662,7 @@ if __name__ == '__main__':
         gender = 'neutral'
         smpl_model = load_model(MODEL_NEUTRAL_PATH)
 
-    #_examine_smpl(model_female), exit()
-
+    _examine_smpl_template(model_female) #, exit()
 
     # Load joints
     '''
@@ -642,14 +683,13 @@ if __name__ == '__main__':
     else:
         inp_path = inp_dir + '/' + dataset + '_%06d.jpg'%idx 
 
-    '''
-    mask_path = mask_dir + '/10kgt_%04d.png'%idx
-    cloth_path = cloth_dir + '/%04d.png'% idx 
-    #print(smpl_model, smpl_param_path, inp_path, mask_path, cloth_path, idx)
-    '''
-    smplmask_path = smplmask_dir + '/%06d_0.png'% idx 
-    jointfile_path = smpljson_dir + '/%06d_0.json'% idx 
-    smpl2mask_single(smpl_model, smpl_param_path, inp_path, smplmask_path,  jointfile_path, idx)
+    #smplmask_path = smplmask_dir + '/%06d_0.png'% idx 
+    #jointfile_path = smpljson_dir + '/%06d_0.json'% idx 
+    smplmask_path = './templatemask.png' 
+    smplpart_path = './templatepart.png' 
+    jointfile_path = './templatejoint.json' 
+    param_path = './templateparam.pkl'
+    smpl2mask_single(smpl_model, smpl_param_path, inp_path, smplmask_path, smplpart_path, jointfile_path, param_path, idx)
 
 
     # plt.pause(10)

@@ -61,7 +61,19 @@ for  viton dataset
 Note: 
     the codes are simple modification from fit_3d.py for our application
 
+2) Template SMPL mask, joints (jsonfile), smpl and camera file used for mask and joints 
+  
+    python smpl2mask.py .. viton 0
 
+    input:  smpl parameter file (pkl),  SMPL template model files
+
+    output :  templatemask.png ( w x  (h *3//2)  
+              templatejoints.json (same format as viton )
+              templateparam.pkl  (parmater file)
+
+    note : in fact , the index  (0) is not very important, the params are fixed, not using the specific index  
+
+  
 2') SMPL model to shillouette mask 
 
     python smpl2mask.py .. viton 1
@@ -177,5 +189,25 @@ Note:
 
 
                            
+
+ Git Usage
+ --------
+ // setup local reposity 
+ git init
+ touch *.py
+ touch *.txt
+
+ // add files to local  repository 
+ git status
+ git add *.py
+ git add README.txt 
+
+ // commit them  
+ 2106  git status
+ 2107  git commit -m 'first commit for sharing update'
+
+ // push to github site
+ 2108  git remote add origin https://github.com/ahnHeejune/smplvton01.git
+ 2109  git push -u origin master
 
 

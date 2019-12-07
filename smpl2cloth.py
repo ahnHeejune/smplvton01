@@ -697,7 +697,7 @@ def smpl2cloth3dcore(cam,      # camera model, Chv
     # 1. Depthmap at vertices
     # @TODO we should modify the depth for cloth
     use_depthmap = True
-    check_depthmap = False 
+    check_depthmap = True 
     if use_depthmap:
         bodydepth = graphutil.build_depthmap2(sv.r, cam)
         if check_depthmap:

@@ -779,17 +779,17 @@ def build_depthimage(vertices, faces,  depth,
         print('depth.shape:', depth.shape)
 
     # 2. rendering 
-        from opendr.renderer import ColoredRenderer
-        # blank background image
-        #depthmap = np.ones([height, width], dtype= 'float32')
-        # depthmap = depthmap*cam.t.r[2]*10 # very far
-        rn = ColoredRenderer()
-        rn.camera = cam
-        rn.frustum = {'near': near, 'far': far, 'width': width, 'height': height} 
+    from opendr.renderer import ColoredRenderer
+    # blank background image
+    #depthmap = np.ones([height, width], dtype= 'float32')
+    # depthmap = depthmap*cam.t.r[2]*10 # very far
+    rn = ColoredRenderer()
+    rn.camera = cam
+    rn.frustum = {'near': near, 'far': far, 'width': width, 'height': height} 
 
-        vc = np.zeros(vertices.shape)
-        vc[:,0], vc[:,1],vc[: ,2] = depth, depth, depth   #  gray color 
-    if False: # 
+    vc = np.zeros(vertices.shape)
+    vc[:,0], vc[:,1],vc[: ,2] = depth, depth, depth   #  gray color 
+    if True: # 
         rn.vc = vc   # giving the albera, FIXME: far -> bright? No! so you should  use gray_r for display
     else: 
         from opendr.lighting import LambertianPointLight
