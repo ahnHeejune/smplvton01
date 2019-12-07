@@ -17,50 +17,9 @@ camera
  - cam.f: [5000. 5000.]  # fixed 
 
 betas type: <type 'numpy.ndarray'> shape: (10,)
-#[ 0.86333032  0.66983643  0.03516618 -0.0108483   0.08504395 -0.03625412
- -0.14589336  0.05147145 -0.09457806 -0.23076016]
-#  what is the  default betas?  all zeros?
+all zeros used (default) 
 
 pose: <type 'numpy.ndarray'> shape: (72,)
-   values: [ 2.23741497e+05  1.76197090e+04 -2.87053045e+04 -3.11457680e+01
- -1.03651321e+00  1.07745803e+01 -3.30462125e+01 -8.75933329e-02
- -8.42849899e+00  1.95213130e+01 -4.77103449e-01 -6.65209831e-01
-  4.66690547e+01 -1.91283890e+00 -9.85186186e+00  5.53364988e+01
-  2.60572518e+00  5.70655214e+00 -4.78080913e+00  9.61015082e-01
-  8.05987811e-01 -5.61919083e+00  5.05691714e+00 -3.50657313e+00
- -1.09920714e+01 -8.33753237e+00  1.14504502e+01  5.36324998e-01
- -1.87318192e+00  3.58527364e-01 -1.63665236e+01  1.15114489e+01
-  1.20531329e+01 -9.78285335e+00  5.56664737e+00 -2.08030024e+01
- -2.07777378e+01  1.07819986e+01  1.71939020e+00  2.91112580e+00
-  1.33954258e+00 -2.73712556e+01  6.52049103e-01  4.28826740e+00
-  2.79391512e+01  1.72933816e+00  2.74343466e+00 -3.25453137e+00
-  8.51945524e+00 -1.07478619e+01 -5.39806102e+01  1.46659045e+01
-  1.64629554e+01  5.45966113e+01  1.25128178e+01 -4.29796685e+01
-  9.27542674e+00  3.19900858e+00  4.31000189e+01 -8.98971514e+00
- -4.56694457e-01  4.03708262e-01  7.01004288e+00 -7.40812882e-02
-  1.92158331e+00 -3.77941487e+00 -1.32085765e+01 -4.55730154e+00
- -1.27710507e+01 -8.56575127e+00  6.76882057e+00  1.25808406e+01]
-
-
-
-pose: <type 'numpy.ndarray'> [ 3.90502580e+03  3.07521935e+02 -5.01002076e+02 -5.43596199e-01
- -1.80905683e-02  1.88051902e-01 -5.76765214e-01 -1.52879206e-03
- -1.47105058e-01  3.40711186e-01 -8.32702606e-03 -1.16101018e-02
-  8.14528663e-01 -3.33853369e-02 -1.71947427e-01  9.65804101e-01
-  4.54784837e-02  9.95981237e-02 -8.34408602e-02  1.67728773e-02
-  1.40671410e-02 -9.80733813e-02  8.82598541e-02 -6.12012466e-02
- -1.91847837e-01 -1.45517391e-01  1.99848057e-01  9.36063708e-03
- -3.26931920e-02  6.25748297e-03 -2.85649724e-01  2.00912686e-01
-  2.10366854e-01 -1.70743001e-01  9.71563249e-02 -3.63080885e-01
- -3.62639935e-01  1.88181376e-01  3.00090202e-02  5.08087301e-02
-  2.33794285e-02 -4.77718530e-01  1.13804037e-02  7.48443854e-02
-  4.87630179e-01  3.01826448e-02  4.78819676e-02 -5.68022880e-02
-  1.48692544e-01 -1.87585578e-01 -9.42139379e-01  2.55968321e-01
-  2.87332777e-01  9.52890628e-01  2.18389869e-01 -7.50136726e-01
-  1.61886736e-01  5.58332325e-02  7.52237238e-01 -1.56900128e-01
- -7.97082195e-03  7.04603839e-03  1.22348329e-01 -1.29296239e-03
-  3.35379557e-02 -6.59632333e-02 -2.30533150e-01 -7.95399168e-02
- -2.22896883e-01 -1.49500562e-01  1.18138205e-01  2.19577092e-01]
 
 """
 from __future__ import print_function
@@ -184,100 +143,6 @@ def _examine_smpl_params(params):
     # print('\tvalues:', params['betas'])  # 10
 
 
-# connvert 
-# 1) uint8 image to float texture image 
-# 2) normalize the vertices 
-# optionally, 
-# 3) coloring the backsize if face visibiltiy is not None)
-# ***note ****:   texture coordinate is UP-side Down, and x-y  nomalized 
-#j
-def prepare_texture(pjt_v, pjt_f, img, face_visibility = None):
-
-    # texture  = overlayed images of 2d and projected.
-    pjt_texture = img.astype(float)/255.0  #  uint8 to float 
-    #pjt_texture[:, :, :] = pjt_texture[:, :, :]/255.0
-    #print('dtype of img:',  img.dtype)
-    #print('dtype of pjt_texture:',  pjt_texture.dtype)
-    th, tw = pjt_texture.shape[0:2]
-    '''
-    pjt_texture[:,:,:] = (1.0, .0, .0)  #  
-    #pjt_texture[:,:int(tw/2),:] = (1.0, 0., 0.)  # B, G, R 
-    pjt_texture[:,int(tw/4):int(3*tw/4),:] = (1.0, 1.0, 1.0)  # B, G, R 
-    '''
-    #print("th, tw:", th, tw)
-    # vt
-    #pjt_v = cam.r.copy()
-    pjt_v[:, 0] = pjt_v[:, 0]/tw  # uv normalize
-    pjt_v[:, 1] = pjt_v[:, 1]/th  # uv normalize
-    # ft
-    #pjt_ft = model.f.copy()
-    #print("ft:", pjt_ft.shape)
-
-    # 5. project the body model with texture renderer
-    # 3. reprojection
-    #print(type(cam.v))
-    #print(cam.v.r.shape)
-
-    #print("textured:",  type(pjt_texture), 'dtype:', pjt_texture.dtype, "shape:",  pjt_texture.shape)
-    #print('max:', np.amax(pjt_texture[:, :, 0]), np.amax(
-    #    pjt_texture[:, :, 1]), np.amax(pjt_texture[:, :, 2]))
-    #print('meam:', np.mean(pjt_texture[:, :, 0]), np.mean(
-    #    pjt_texture[:, :, 1]), np.mean(pjt_texture[:, :, 2]))
-    #  apply the visibility map for texturing
-    if face_visibility is not None:
-        v_end = cam.r.shape[0]
-        pjt_vt = np.append(
-            pjt_vt, [[0./tw,  0./th], [1.0/tw, 0./th], [0./tw, 1.0/th]], axis=0)
-        pjt_texture[th-50:th, 0:50] = (1.0, 1.0, 1.0)
-        pjt_texture[0:50, 0:50] = (1.0, 1.0, 1.0)
-        for i in range(f_normal.shape[0]):
-            if face_visibility[i] < 0:
-                pjt_ft[i] = (v_end, v_end+1, v_end+2)  # (0, 1, 2)
-
-    return pjt_texture 
-
-
-#
-# texture processing with alpha blending 
-def prepare_texture_with_alpha(pjt_v, pjt_f, img, mask, target_label):
-
-
-    alpha = np.zeros(mask.shape)
-    alpha[mask == target_label]  = 1.0  # 1.0 for fully opaque, 0.0 for transparent 
-
-    rgb = img.astype(float)/255.0  #  uint8 to float 
-    rgba = cv2.merge((rgb, alpha)) 
-    print('shapes:', img.shape, rgb.shape, alpha.shape, rgba.shape)
-    
-    th, tw = rgba.shape[0:2]
-    pjt_v[:, 0] = pjt_v[:, 0]/tw  # uv normalize
-    pjt_v[:, 1] = pjt_v[:, 1]/th  # uv normalize
-
-    return rgba #[:,:,:3] 
-
-# create V, A, U, f: geom, bright, cam, renderer
-def build_texture_renderer(U, V, f, vt, ft, texture, w, h, ambient=0.0, near=0.5, far=20000, background_image = None):
-
-    A = SphericalHarmonics(vn=VertNormals(v=V, f=f),
-                           components=[0., 0., 0., 0., 0., 0., 0., 0., 0.],
-                           light_color=ch.ones(3)) + ambient
-
-    if background_image is not None:
-        R = TexturedRenderer(vc=A, camera=U, f=f, bgcolor=[0.0, 0.0, 0.0],
-                         texture_image=texture, vt=vt, ft=ft,
-                         frustum={'width': w, 'height': h, 'near': near, 'far': far}, background_image= background_image)
-
-    else:
-        R = TexturedRenderer(vc=A, camera=U, f=f, bgcolor=[0.0, 0.0, 0.0],
-                         texture_image=texture, vt=vt, ft=ft,
-                         frustum={'width': w, 'height': h, 'near': near, 'far': far})
-
-    return R
-
-
-
-
-
 # convert numpy to json for a single person joint
 def cvt_joints_np2json(joints_np):
 
@@ -296,7 +161,15 @@ def cvt_joints_np2json(joints_np):
 
     return joints_json
 
-
+#
+# calculate pixel position of SMPL joints 
+#
+#  cam: camera ie. projector 
+#  model: smpl basic mdoel 
+#  sv:  surfac vectors  (opendr)
+#  betas : body shape, why needed?
+#  h: projection image height
+#  w: projection image width 
 def calculate_joints(cam, model, sv, betas, h , w):
 
     # 1. get the joint locations
@@ -350,13 +223,18 @@ def calculate_joints(cam, model, sv, betas, h , w):
 
 
 
-###############################################################################
 # rendering with color  
 # 
 # @TODO: Texture rendering might be better for clearer segmentation 
 #
 # no light  setting needed for ColorRenderer
-###############################################################################
+# vertices:  3D position 
+# faces    : triangles 
+# labelmap : map  from vertex to label 
+# cam,
+# height, width:  projection  size  
+# near = 0.5,  far = 25, 
+# bDebug = False):
 def render_with_label(vertices, faces, labelmap,
                     cam, height, width, near = 0.5,  far = 25, bDebug = False):
 
@@ -386,7 +264,7 @@ def render_with_label(vertices, faces, labelmap,
     return img
 
 #
-# SMPL => mask  
+# SMPL => binary mask, part mask, joint location   
 #
 def smpl2maskcore(cam,      # camera model, Chv
           betas,    # shape coef, numpy
@@ -507,7 +385,6 @@ def smpl2maskcore(cam,      # camera model, Chv
     return imBinary, imPart, joints_json, params
 
 
-#######################################################################################
 # load dataset dependent files and call the core processing 
 #---------------------------------------------------------------
 # smpl_mdoel: SMPL 
@@ -515,7 +392,6 @@ def smpl2maskcore(cam,      # camera model, Chv
 # inimg_path: input image 
 # out mask image 
 # ind : image index 
-#######################################################################################
 def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outpartimg_path, outjoint_path,  outparam_path, ind):
 
     if smpl_model is None or inmodel_path is None or inimg_path is None or outbinimg_path is None or outpartimg_path is None:
@@ -541,36 +417,6 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outp
     img2D = cv2.imread(inimg_path)
     if img2D is None:
         print("cannot open",  inimg_path), exit()
-
-    # segmentation mask 
-    '''
-    mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
-    if mask is None:
-        print("cannot open",  mask_path), exit()
-
-    #  pre-processing for boundary matching  
-    mask[mask == cloth_label_dict['bag']] = 0  # remove bag,  FIXME:  occlusion recovery 
-
-    # remark skin (not face)
-    neck_y = j2d[12,1]
-    lsh_y  = j2d[9,1]
-    rsh_y  = j2d[8,1]
-    cut_y  = int((neck_y + lsh_y +rsh_y)/3.0) 
-    #print(type(neck_y), neck_y)
-    mask_skin = mask.copy()
-    mask_skin[mask == cloth_label_dict['face']] = cloth_label_dict['skin'] # 18  
-    mask[cut_y:,:]  = mask_skin[cut_y:, :]   # replace only non face region bellow the neck
-    
-    # cut the connected legs 
-    if idx == 0:
-        mask[500:,190] = 0
-    elif idx == 1:
-        mask[500:,220] = 0
-    else:
-        print('Not prepared Yet for the idx!')
-        # exit()
-
-    '''
 
     # 3. run the SMPL body to cloth processing 
     cam   = params['cam']      # camera model, Ch
