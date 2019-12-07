@@ -143,6 +143,51 @@ def _examine_smpl_params(params):
     # print('\tvalues:', params['betas'])  # 10
 
 
+# 
+#
+#
+def build_template_body_model(model, pose, betas, cam):
+
+    # 1. Pose to standard pose   
+    if True:   # make standard pose for easier try-on 
+        pose[:] = 0.0    
+        pose[0] = np.pi  
+        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
+        pose[16*3+2] = -7/16.0*np.pi  
+        pose[17*3+2] = +7/16.0*np.pi 
+        betas[:] = 0.0
+        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
+        cam.t = [0., 0.4, 25.]
+        cam.rt =  [0.,  0.,  0.]
+        cam.k = [0.,  0., 0.,  0.,  0.]
+        cam.f = [5000.,  5000.]
+        cam.c =  [ 96., 128.]    # depending on the image size 
+
+    print('Final pose and betas ')
+    print('pose:',  pose.reshape([-1,3]))
+    print('betas:', betas)
+
+    n_betas = betas.shape[0]
+    viz  = False
+
+    # 2. build body model  
+    sv = verts_decorated(  # surface vertices
+        trans=ch.zeros(3),
+        pose=ch.array(pose),
+        v_template=model.v_template,
+        J=model.J_regressor,
+        betas=ch.array(betas),
+        shapedirs=model.shapedirs[:, :, :n_betas],
+        weights=model.weights,
+        kintree_table=model.kintree_table,
+        bs_style=model.bs_style,
+        f=model.f,
+        bs_type=model.bs_type,
+        posedirs=model.posedirs,
+        want_Jtr = not viz) # need J_transformed for reposing based on vertices 
+
+    return sv
+
 # convert numpy to json for a single person joint
 def cvt_joints_np2json(joints_np):
 
@@ -281,69 +326,31 @@ def smpl2maskcore(cam,      # camera model, Chv
 
     h, w = imRGB.shape[0:2]
 
-    # 1. Pose to standard pose   
-    if True:   # make standard pose for easier try-on 
-        pose[:] = 0.0    
-        pose[0] = np.pi  
-        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
-        pose[16*3+2] = -7/16.0*np.pi  
-        pose[17*3+2] = +7/16.0*np.pi 
-        betas[:] = 0.0
-        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
-        cam.t = [0., 0.4, 25.]
-        cam.rt =  [0.,  0.,  0.]
-        cam.k = [0.,  0., 0.,  0.,  0.]
-        cam.f = [5000.,  5000.]
-        cam.c =  [ 96., 128.]    # depending on the image size 
-
-    print('Final pose and betas ')
-    print('pose:', type(pose), pose)
-    print('betas:', type(betas), betas)
-
-    # 2. build body model  
-    sv = verts_decorated(  # surface vertices
-        trans=ch.zeros(3),
-        pose=ch.array(pose),
-        v_template=model.v_template,
-        J=model.J_regressor,
-        betas=ch.array(betas),
-        shapedirs=model.shapedirs[:, :, :n_betas],
-        weights=model.weights,
-        kintree_table=model.kintree_table,
-        bs_style=model.bs_style,
-        f=model.f,
-        bs_type=model.bs_type,
-        posedirs=model.posedirs,
-        want_Jtr = not viz) # need J_transformed for reposing based on vertices 
-
+    # 1. build template body model
+    sv = build_template_body_model(model, pose, betas, cam)
     #sv_r = sv.r.copy()
-    dist = np.abs(cam.t.r[2] - np.mean(sv.r, axis=0)[2])
 
-    # 3. render the model with parameter
+    # 2. render the model with parameter
     h = h*3//2  # extended for full body 
     print("output size (hxw):", h,  w)
     im3CGray = cv2.cvtColor(cv2.cvtColor(imRGB, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)  # 3 channel gray 
     im3CBlack = np.zeros([h, w, 3], dtype = np.uint8)   
     imBackground = im3CBlack
+    dist = np.abs(cam.t.r[2] - np.mean(sv.r, axis=0)[2])
     im = (render_model(
         sv.r, model.f, w, h, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
 
-
-
-    # 4. binary mask 
+    # 3. binary mask 
     imBinary = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)  # gray silhouette  
     imBinary[imBinary > 0] = 255  # binary (0, 1)
     # @TODO: check any noisy pixels,  if yes, filtering or get contours and redrawing with contours 
 
-
-
-    # 4'. segmentation information of  human body 
+    # 4. segmentation information of  human body 
     bodyparts = np.argmax(model.weights.r, axis=1)
-    print(np.unique(bodyparts))  # will list all the joints nmbers 
+    #print(np.unique(bodyparts))  # will list all the joints nmbers 
     imPart = render_with_label(sv.r,  model.f,  bodyparts, cam,  height=h, width=w, near= 0.5, far= 40, bDebug = True)
-    print("impart:", np.amax(imPart), np.amin(imPart), np.mean(imPart))
-    print("       ", np.unique(imPart))
-
+    #print("impart:", np.amax(imPart), np.amin(imPart), np.mean(imPart))
+    #print("       ", np.unique(imPart))
 
     # 5. new 2d joints for template 
     joints_np = calculate_joints(cam, model, sv, betas, h, w)
@@ -353,6 +360,7 @@ def smpl2maskcore(cam,      # camera model, Chv
     for i in range(joints_np_int.shape[0]):   
         cv2.circle(imJoint, tuple(joints_np_int[i,:2]), 2, (0, 0, 255), -1) # 2D joint White
 
+    # display for check results
     if True:
         plt.subplot(2,2,1)
         plt.imshow(im[:,:,::-1])  # , cmap='gray')
@@ -410,7 +418,7 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outp
     cam = ProjectPoints(f = params['cam_f'], rt=params['cam_rt'], t=params['cam_t'], k=params['cam_k'], c= params['cam_c'])
     params['cam'] = cam
 
-    _examine_smpl_params(params)
+    #_examine_smpl_params(params)
 
     #  2d rgb image for texture
     #inimg_path = img_dir + '/dataset10k_%04d.jpg'%idx
@@ -508,7 +516,7 @@ if __name__ == '__main__':
         gender = 'neutral'
         smpl_model = load_model(MODEL_NEUTRAL_PATH)
 
-    _examine_smpl_template(model_female) #, exit()
+    #_examine_smpl_template(model_female) #, exit()
 
     # Load joints
     '''
