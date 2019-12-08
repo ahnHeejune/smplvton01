@@ -67,11 +67,12 @@ Note:
 
     input:  smpl parameter file (pkl),  SMPL template model files
 
-    output :  templatemask.png ( w x  (h *3//2)  
+    output :  templatemask.png ( w x  h ) :   we can turn on full-size mask with size_ext = True in  the  code.  
               templatejoints.json (same format as viton )
               templateparam.pkl  (parmater file)
 
-    note : in fact , the index  (0) is not very important, the params are fixed, not using the specific index  
+    Note 1: in fact , the index  (0) is not very important, the params are fixed, not using the specific index  
+    Note 2:  you generate the file or you can get it from google drive too
 
   
 2') SMPL model to shillouette mask 
@@ -88,13 +89,20 @@ Note:
     1. when saving use the viton_list file for re-naming the images 
 
 
-2) SMPL model to Cloth model
+
+3) cloth  3d reconstuction
+   python  smpl3dclothrec.py  ..  smpltemplate.pkl  cloth.png  clothmask.png
+   Note: this is  now only test stage running option will be chaged
+   Note: The required image file is separately uploaded in google drive
+
+
+?) SMPL model to Cloth model
    python smpl2cloth.py .. 10k 1 
 
    graphuitl.py used for vertices operations
    boundary_maching.py used for matching boudnary with TPS algorithm
 
-3) transfer cloth (not implemented yet) 
+?) transfer cloth (not implemented yet) 
    python smpl_cloth_xfer.py  1 .. 10k 
 
    
