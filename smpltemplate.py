@@ -324,6 +324,7 @@ def smpl2maskcore(cam,      # camera model, Chv
             print( retrieve_name(which) ,  'is  None')
             exit()
 
+    size_ext = False
     h, w = imRGB.shape[0:2]
 
     # 1. build template body model
@@ -331,14 +332,18 @@ def smpl2maskcore(cam,      # camera model, Chv
     #sv_r = sv.r.copy()
 
     # 2. render the model with parameter
-    h = h*3//2  # extended for full body 
-    print("output size (hxw):", h,  w)
+    h_ext = h*3//2  # extended for full body 
+    if size_ext:
+        print("output size (hxw):", h_ext,  w)
+    else:
+        print("output size (hxw):", h,  w)
+
     im3CGray = cv2.cvtColor(cv2.cvtColor(imRGB, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)  # 3 channel gray 
-    im3CBlack = np.zeros([h, w, 3], dtype = np.uint8)   
+    im3CBlack = np.zeros([h_ext, w, 3], dtype = np.uint8)   
     imBackground = im3CBlack
     dist = np.abs(cam.t.r[2] - np.mean(sv.r, axis=0)[2])
     im = (render_model(
-        sv.r, model.f, w, h, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
+        sv.r, model.f, w, h_ext, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
 
     # 3. binary mask 
     imBinary = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)  # gray silhouette  
@@ -348,12 +353,15 @@ def smpl2maskcore(cam,      # camera model, Chv
     # 4. segmentation information of  human body 
     bodyparts = np.argmax(model.weights.r, axis=1)
     #print(np.unique(bodyparts))  # will list all the joints nmbers 
-    imPart = render_with_label(sv.r,  model.f,  bodyparts, cam,  height=h, width=w, near= 0.5, far= 40, bDebug = True)
+    imPart = render_with_label(sv.r,  model.f,  bodyparts, cam,  height=h_ext, width=w, near= 0.5, far= 40, bDebug = True)
     #print("impart:", np.amax(imPart), np.amin(imPart), np.mean(imPart))
     #print("       ", np.unique(imPart))
 
     # 5. new 2d joints for template 
-    joints_np = calculate_joints(cam, model, sv, betas, h, w)
+    if size_ext:
+        joints_np = calculate_joints(cam, model, sv, betas, h_ext, w)
+    else:
+        joints_np = calculate_joints(cam, model, sv, betas, h, w)
     # check the joints 
     joints_np_int = joints_np.astype(int)
     imJoint = im.copy()
@@ -390,7 +398,11 @@ def smpl2maskcore(cam,      # camera model, Chv
               'pose': sv.pose.r,
               'betas': sv.betas.r}
 
-    return imBinary, imPart, joints_json, params
+
+    if size_ext :
+        return imBinary, imPart, joints_json, params
+    else:
+        return imBinary[:h,:],  imPart[:h,:], joints_json, params 
 
 
 # load dataset dependent files and call the core processing 
