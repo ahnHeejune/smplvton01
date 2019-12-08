@@ -658,10 +658,11 @@ def cloth3drec_core(cam,      # camera model, Chv
 
     clothed2d = construct_clothed2d_from_body(model, body_sv, j2d_wo_confidence, cam, imClothedMask)
     if True: # show the clothed 2d vertices   
+        marksize = 1
         imClothed2d = np.zeros([h_ext, w], dtype='uint8') #  blank background image
         for i in range(clothed2d.shape[0]): 
             x, y = int(clothed2d[i, 0]), int(clothed2d[i,1])
-            imClothed2d[y-5:y+5, x-5:x+5] = 255
+            imClothed2d[y-marksize:y+marksize, x-marksize:x+marksize] = 255
             #cv2.drawMarker(img[:,:, parts[i]], (x,y), 255, markerSize = 5)
         plt.imshow(imClothed2d)
         plt.draw()
