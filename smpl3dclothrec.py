@@ -373,7 +373,6 @@ def construct_clothed3d_from_clothed2d_depth(body_sv, cam, clothed2d):
     clothuvd[:,2] = bodydepth    #  @TODO for now simply use the same depth as body ^^;
     cloth3d = cam.unproject_points(clothuvd)
     #sv.r = cloth3d  #  now the model is not body but cloth
-    cam.v =  cloth3d  # ths is body !!
 
     return cloth3d
 
@@ -620,6 +619,10 @@ def cloth3drec_core(cam,      # camera model, Chv
     h, w = imCloth.shape[0:2]
     h_ext = h * 3//2
 
+    print(imClothMask.shape)
+    print(len(imClothMask.shape))
+    if len(imClothMask.shape) > 2:  # ie. 3 ch  to 1 ch 
+        imClothMask = cv2.cvtColor(imClothMask, cv2.COLOR_BGR2GRAY)
 
     # h vs h_ext 
     # half body image has size of h x w 
@@ -637,7 +640,7 @@ def cloth3drec_core(cam,      # camera model, Chv
     imClothedMask[imClothedMask > 0] = 255  # binary (0, 1)
     #imClothedMask[imClothMask[:,:] > 0]  = 255   # union of body and .....
     imClothMask_ext = np.zeros([h_ext, w], dtype='uint8') #  blank background image
-    imClothMask_ext[:h, :]  =  imClothMask[:,:, 0]
+    imClothMask_ext[:h, :]  =  imClothMask[:,:]
     imClothedMask[imClothMask_ext > 0]  = 255   # union of body and .....
     imCloth_ext = np.zeros([h_ext, w, 3], dtype='uint8') #  blank background image
     imCloth_ext[:h,:,:]  =  imCloth[:,:, :]
@@ -672,12 +675,34 @@ def cloth3drec_core(cam,      # camera model, Chv
 
     # 3. 3D cloth vertices from 2d position and depth 
     clothed3d = construct_clothed3d_from_clothed2d_depth(body_sv, cam, clothed2d)
+    cam.v =  clothed3d  # now camera  project clothed 3D vertex not body's
 
-
-    # 4.check the 3d cloth results 
+    # check the 3d cloth results 
     show_3d_model(model, cam, imCloth_ext)
     _ = raw_input('next?')
-    
+
+
+    # 4. get the cloth vertices (face?) subset and the displacement vector   
+    #print(cam.r.shape) 
+    #print(imClothMask.shape)  
+    #print(imClothMask[cam.r.astype(np.uint8)].shape)  
+    pjt_positions = cam.r.astype(np.uint8)  
+    print(imClothMask[pjt_positions].shape)  
+    '''
+    imClothMask1d = imClothMask[t].flatten()  
+    print(imClothMask1d.shape)
+    print(imClothMask1dv4Cloth)
+    '''
+    imClothMask1d = np.zeros([pjt_positions.shape[0]], dtype='uint8')
+    for i in range(pjt_positions.shape[0]):
+       imClothMask1d[i] = imClothMask[pjt_positions[i,1], pjt_positions[i,0]] 
+
+    #print(imClothMask1d.shape)
+    v4Cloth = np.argwhere(imClothMask1d > 0).flatten()  
+    print('vertices for cloth area:', v4Cloth.shape,  v4Cloth)
+    cloth3dminusbody3d  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
+    print('diff cloth and body:', cloth3dminusbody3d.shape, cloth3dminusbody3d)
+
     return None, None
 
 
