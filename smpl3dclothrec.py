@@ -470,19 +470,18 @@ def build_texture_renderer(U, V, f, vt, ft, texture, w, h, ambient=0.0, near=0.5
 
 
 # display 3d model 
-def show_3d_model(model, cam, imTexture):
+
+def show_3d_model(cam, imTexture, pjt_vt, pjt_ft):
 
     h, w = imTexture.shape[:2]
     dist = 20.0
 
-    # 1. build texture renderer 
-    pjt_vt = cam.r.copy()
-    pjt_ft = model.f.copy()
     pjt_texture = prepare_texture(pjt_vt,pjt_ft, imTexture)
-    texture_renderer = build_texture_renderer(cam, cam.v, model.f, pjt_vt, pjt_ft,
+
+    # 1. build texture renderer 
+    texture_renderer = build_texture_renderer(cam, cam.v, pjt_ft, pjt_vt, pjt_ft,
                                  pjt_texture[::-1, :, :], w, h, 1.0, near=0.5, far=20 + dist)
-    textured_cloth2d = texture_renderer.r
-    check_clothv3d_texture = True
+    #textured_cloth2d = texture_renderer.r
 
     '''
     if not viz:
@@ -490,6 +489,7 @@ def show_3d_model(model, cam, imTexture):
         return sv.J_transformed.r, pjt_vt, pjt_ft, pjt_texture #, body2dvt_save
         #return None
     '''
+    #plt.figure()
     plt.subplot(1, 5, 1)
     plt.axis('off')
     plt.imshow(imTexture[:,:,::-1])
@@ -497,8 +497,7 @@ def show_3d_model(model, cam, imTexture):
 
     rot_axis = 1
     rotation = ch.zeros(3)
-    rotation[rot_axis] = 3.14/4
-    #img0 = pjt_R.r[:, :, ::-1]*255.0
+    rotation[rot_axis] = np.pi/4
     img0 = texture_renderer.r[:, :, ::-1]*255.0
     img0 = img0.astype('uint8')
     for i in range(4):
@@ -506,8 +505,8 @@ def show_3d_model(model, cam, imTexture):
         #plt.imshow(pjt_R.r)
         plt.imshow(texture_renderer.r)
         plt.axis('off')
-        plt.draw()
-        plt.show()
+        #plt.draw()
+        #plt.show()
         #plt.title('angle =%f'%yaw)
         plt.title('%.0f degree' % (i*45))
         cam.v = cam.v.dot(Rodrigues(rotation))
@@ -580,8 +579,6 @@ def calculate_joints(cam, model, sv, betas, h , w):
 
 def cvt_joints_np2json(joints_np):
 
-
-
     # 1. re-ordering
     # same as viton2lsp_joint and reamining
     order = [13,12,8, 7, 6, 9, 10, 11, 2, 1, 0, 3, 4, 5, 14, 15, 16, 17]
@@ -602,13 +599,13 @@ def cvt_joints_np2json(joints_np):
 #
 #  cloth 3D model reconstrction  using  2d cloth (mapped onto template) and template  
 #
-def cloth3drec_core(cam,      # camera model, Chv
+def cloth3drec_core( model,    # SMPL model 
+          cam,      # camera model, Chv
           betas,    # shape coef, numpy
           n_betas,  # num of PCA
           pose,     # angles, 27x3 numpy
           imCloth,   # img numpy
           imClothMask, #  img numpy 
-          model,    # SMPL model 
           viz = False):     # visualize or not  
 
     for which in [cam,  betas,  pose, imCloth, imClothMask, model]:
@@ -647,8 +644,8 @@ def cloth3drec_core(cam,      # camera model, Chv
     imCloth_ext[imClothMask_ext <= 0]  =  0  # black out  
     imBodyRGB[imClothMask_ext > 0] =  imCloth_ext[imClothMask_ext > 0] 
     if True: # show cloth  overlayed on smpl  
-        #plt.imshow(imBodyRGB[:,:, ::-1])
-        plt.imshow(imClothedMask)
+        plt.imshow(imBodyRGB[:h,:, ::-1])
+        #plt.imshow(imClothedMask)
         plt.draw()
         plt.show()
         _ = raw_input('next?')
@@ -678,7 +675,9 @@ def cloth3drec_core(cam,      # camera model, Chv
     cam.v =  clothed3d  # now camera  project clothed 3D vertex not body's
 
     # check the 3d cloth results 
-    show_3d_model(model, cam, imCloth_ext)
+    pjt_v2d = cam.r.copy()
+    pjt_faces = model.f.copy()
+    show_3d_model(cam, imCloth_ext, pjt_v2d, pjt_faces)
     _ = raw_input('next?')
 
 
@@ -693,18 +692,30 @@ def cloth3drec_core(cam,      # camera model, Chv
     print(imClothMask1d.shape)
     print(imClothMask1dv4Cloth)
     '''
+    # @TODO anyone can simplify this code, not using the ugly for-loop?
     imClothMask1d = np.zeros([pjt_positions.shape[0]], dtype='uint8')
     for i in range(pjt_positions.shape[0]):
        imClothMask1d[i] = imClothMask[pjt_positions[i,1], pjt_positions[i,0]] 
-
     #print(imClothMask1d.shape)
     v4Cloth = np.argwhere(imClothMask1d > 0).flatten()  
+
     print('vertices for cloth area:', v4Cloth.shape,  v4Cloth)
-    cloth3dminusbody3d  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
-    print('diff cloth and body:', cloth3dminusbody3d.shape, cloth3dminusbody3d)
+    diffClothminusBody  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
+    print('diff cloth and body:', diffClothminusBody.shape, diffClothminusBody)
 
-    return None, None
+    return v4Cloth, diffClothminusBody, clothed3d, imCloth_ext, pjt_v2d
 
+
+
+#
+# add the cloth displacement to the body surafce 
+# 
+# @TODO: Do this !! the most key part combining with displacement generatrion 
+#
+#
+def re_pose_shape_cloth(cam_tgt, betas_tgt, n_betas_tgt, pose_tgt, v4cloth, diff_cloth_body):
+
+    pass
 
 #######################################################################################
 # load dataset dependent files and call the core processing 
@@ -744,21 +755,41 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
         print("cannot open",  inclothmask_path), exit()
 
     # 3. run the SMPL body to cloth processing 
-    cam   = params['cam']      # camera model, Ch
-    betas = params['betas']
-    n_betas = betas.shape[0] #10
-    pose  = params['pose']    # angles, 27x3 numpy
-    img_mask, joints_json  = cloth3drec_core(params['cam'],      # camera model, Ch
-                 betas,    # shape coeff, numpy
-                 n_betas,  # num of PCA
-                 pose,     # angles, 27x3 numpy
+    cam_src   = params['cam']      # camera model, Ch
+    betas_src = params['betas']
+    n_betas_src = betas_src.shape[0] #10
+    pose_src  = params['pose']    # angles, 27x3 numpy
+    v4cloth, diff_cloth_body, clothed3d, im4tex_cloth, tex_v2d = cloth3drec_core( smpl_model, # SMPL
+                 cam_src,      # camera model, Ch
+                 betas_src,    # shape coeff, numpy
+                 n_betas_src,  # num of PCA
+                 pose_src,     # angles, 27x3 numpy
                  imCloth,    # img numpy
                  imClothMask, # mask 
-                 smpl_model, # SMPL
                  viz = True)    # display   
 
+    # 4. (should seperate into another script file)
+    # try to another shape and posed person, kind of trabsfer  
+    # for test purpose, simple copy the template and repose and reshape as you like 
+    # 4.1 copy 
+    cam_tgt = ProjectPoints(f = params['cam_f'], rt=params['cam_rt'], t=params['cam_t'], k=params['cam_k'], c= params['cam_c'])
+    cam_tgt.v = clothed3d
+    pose_tgt = pose_src.copy()
+    n_betas_tgt = n_betas_src
+    betas_tgt = betas_src.copy()
+    # 4.2 modify pose and shape 
+
+    re_pose_shape_cloth(cam_tgt, 
+            betas_tgt,
+            n_betas_tgt,
+            pose_tgt,
+            v4cloth,
+            diff_cloth_body)
+
+    show_3d_model(cam_tgt, im4tex_cloth, cam_tgt.r.copy(), smpl_model.f.copy()) # cam_tgt has all the information 
+
     '''
-    # 3.2 save result for checking
+    # save result for checking
     if outimg_path is not None:
        cv2.imwrite(outimg_path, img_mask)
     if outjoint_path is not None:
