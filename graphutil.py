@@ -107,6 +107,7 @@ def cosine_similarity(v1, v2, normalized=False):
     from numpy import dot
     from numpy.linalg import norm
 
+    #print('shape -comp:', v1.shape, v2.shape)
     cos_sim = dot(v1, v2)
     if not normalized: # not normaled yet, normalized 
         cos_sim = cos_sim/(norm(v1)*norm(v2))
@@ -142,6 +143,57 @@ def build_face_visibility(f_normal, cam):
 
     return visibility
 
+
+# compute the second local axis for the vertices
+# the local axis should be orthonormal to v_normal and aligned to specific edge, i.e., the neighbor vertex
+
+def find2ndaxis(faces, v_normal, v_ref):
+
+    debug  = True
+    n_vertex = v_ref.shape[0] 
+
+
+    # 1. first find the smalles t-indexed neighbor vertex 
+    # @TODO any way to speed up this step?
+    ngbr_vertex =  n_vertex*np.ones(v_ref.shape[0], dtype = np.int64)
+    for fidx, fv in enumerate(faces):
+         v0, v1, v2 =  fv
+         # v0 
+         if ngbr_vertex[v0] > v1:
+             ngbr_vertex[v0] = v1
+         if ngbr_vertex[v0] > v2:
+             ngbr_vertex[v0] = v2
+         # v1
+         if ngbr_vertex[v1] > v0:
+             ngbr_vertex[v1] = v0
+         if ngbr_vertex[v1] > v2:
+             ngbr_vertex[v1] = v2
+         # v2 
+         if ngbr_vertex[v2] > v1:
+             ngbr_vertex[v2] = v1
+         if ngbr_vertex[v2] > v0:
+             ngbr_vertex[v2] = v0
+
+    # check results 
+    if debug:
+       for idx in range(n_vertex):
+          if ngbr_vertex[idx] >= n_vertex:
+              print('This vertex has no neighbor hood:',  idx)
+
+
+    # 2. compute the tangential vector component 
+    #    vec -   dot(normal, vec) * normal
+    from numpy import dot
+    from numpy.linalg import norm
+
+    vec1 = v_ref[ngbr_vertex] - v_ref       # get the edge vector 
+    print('shape comp: ',  v_normal.shape, vec1.shape)
+    coefs = np.sum(v_normal*vec1, axis=1) # coef = dot(v_normal, vec1)
+    vec2 = vec1 - coefs[:, None]*v_normal  # remove the normal components
+
+    axis = normalize_v3(vec2)
+
+    return axis
 
 
 ###############################################################################
