@@ -154,26 +154,7 @@ def _examine_smpl_params(params):
 #
 #
 #
-def build_template_body_model(model, pose, betas, cam):
-
-    # 1. Pose to standard pose
-    if True:   # make standard pose for easier try-on
-        pose[:] = 0.0
-        pose[0] = np.pi
-        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
-        pose[16*3+2] = -7/16.0*np.pi
-        pose[17*3+2] = +7/16.0*np.pi
-        betas[:] = 0.0
-        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
-        cam.t = [0., 0.4, 25.]
-        cam.rt =  [0.,  0.,  0.]
-        cam.k = [0.,  0., 0.,  0.,  0.]
-        cam.f = [5000.,  5000.]
-        cam.c =  [ 96., 128.]    # depending on the image size
-
-    print('Final pose and betas ')
-    print('pose:',  pose.reshape([-1,3]))
-    print('betas:', betas)
+def build_smplbody_surface(model, pose, betas, cam):
 
     n_betas = betas.shape[0]
     viz  = False
@@ -217,7 +198,7 @@ def construct_clothed2d_from_body(model, body_sv, j2d, cam, mask):
 
     # cam  should be set with cam.v = body_sv.r  
     # 1.1 construct face_visibility map in 3D body shape
-    f_normal, v_normal = graphutil.calc_normal_vectors(cam.v, model.f)
+    f_normal, v_normal = graphutil.calc_normal_vectors(cam.v.r, model.f)
     face_visibility = graphutil.build_face_visibility(f_normal, cam)
 
     # 1.2. extract edge vertices
@@ -385,27 +366,20 @@ def construct_clothed3d_from_clothed2d_depth(body_sv, cam, clothed2d):
 # 3) coloring the backsize if face visibiltiy is not None)
 # ***note ****:   texture coordinate is UP-side Down, and x-y  nomalized 
 #j
-def prepare_texture(pjt_v, pjt_f, img, face_visibility = None):
+def prepare_texture(imv2d, faces, im4texture):
 
     # texture  = overlayed images of 2d and projected.
-    pjt_texture = img.astype(float)/255.0  #  uint8 to float 
-    #pjt_texture[:, :, :] = pjt_texture[:, :, :]/255.0
+    texture = im4texture.astype(float)/255.0  #  uint8 to float 
     #print('dtype of img:',  img.dtype)
     #print('dtype of pjt_texture:',  pjt_texture.dtype)
-    th, tw = pjt_texture.shape[0:2]
+    th, tw = texture.shape[0:2]
     '''
     pjt_texture[:,:,:] = (1.0, .0, .0)  #  
     #pjt_texture[:,:int(tw/2),:] = (1.0, 0., 0.)  # B, G, R 
     pjt_texture[:,int(tw/4):int(3*tw/4),:] = (1.0, 1.0, 1.0)  # B, G, R 
     '''
     #print("th, tw:", th, tw)
-    # vt
-    #pjt_v = cam.r.copy()
-    pjt_v[:, 0] = pjt_v[:, 0]/tw  # uv normalize
-    pjt_v[:, 1] = pjt_v[:, 1]/th  # uv normalize
-    # ft
-    #pjt_ft = model.f.copy()
-    #print("ft:", pjt_ft.shape)
+    texture_v2d = np.stack((imv2d[:, 0]/tw, imv2d[:, 1]/th), axis = -1)  # uv normalize
 
     # 5. project the body model with texture renderer
     # 3. reprojection
@@ -418,17 +392,8 @@ def prepare_texture(pjt_v, pjt_f, img, face_visibility = None):
     #print('meam:', np.mean(pjt_texture[:, :, 0]), np.mean(
     #    pjt_texture[:, :, 1]), np.mean(pjt_texture[:, :, 2]))
     #  apply the visibility map for texturing
-    if face_visibility is not None:
-        v_end = cam.r.shape[0]
-        pjt_vt = np.append(
-            pjt_vt, [[0./tw,  0./th], [1.0/tw, 0./th], [0./tw, 1.0/th]], axis=0)
-        pjt_texture[th-50:th, 0:50] = (1.0, 1.0, 1.0)
-        pjt_texture[0:50, 0:50] = (1.0, 1.0, 1.0)
-        for i in range(f_normal.shape[0]):
-            if face_visibility[i] < 0:
-                pjt_ft[i] = (v_end, v_end+1, v_end+2)  # (0, 1, 2)
 
-    return pjt_texture 
+    return texture, texture_v2d 
 
 
 #
@@ -471,28 +436,26 @@ def build_texture_renderer(U, V, f, vt, ft, texture, w, h, ambient=0.0, near=0.5
 
 # display 3d model 
 
-def show_3d_model(cam, imTexture, pjt_vt, pjt_ft):
+def show_3d_model(cam, _texture, texture_v2d, faces, normalImage = False):
 
-    h, w = imTexture.shape[:2]
+    #h, w = imTexture.shape[:2]
+    h, w = _texture.shape[:2]
     dist = 20.0
 
-    pjt_texture = prepare_texture(pjt_vt,pjt_ft, imTexture)
+    if normalImage:
+        texture = prepare_texture(texture_v2d, faces, _texture)
+    else:
+        texture = _texture
 
     # 1. build texture renderer 
-    texture_renderer = build_texture_renderer(cam, cam.v, pjt_ft, pjt_vt, pjt_ft,
-                                 pjt_texture[::-1, :, :], w, h, 1.0, near=0.5, far=20 + dist)
+    texture_renderer = build_texture_renderer(cam, cam.v, faces, texture_v2d, faces,
+                                 texture[::-1, :, :], w, h, 1.0, near=0.5, far=20 + dist)
     #textured_cloth2d = texture_renderer.r
 
-    '''
-    if not viz:
-        print('sv.J_transformed.r :', sv.J_transformed.r.shape)
-        return sv.J_transformed.r, pjt_vt, pjt_ft, pjt_texture #, body2dvt_save
-        #return None
-    '''
-    #plt.figure()
+    # plt.figure()
     plt.subplot(1, 5, 1)
     plt.axis('off')
-    plt.imshow(imTexture[:,:,::-1])
+    plt.imshow(texture[:,:,::-1])
     plt.title('input')
 
     rot_axis = 1
@@ -511,10 +474,73 @@ def show_3d_model(cam, imTexture, pjt_vt, pjt_ft):
         plt.title('%.0f degree' % (i*45))
         cam.v = cam.v.dot(Rodrigues(rotation))
 
-
     plt.show()
 
 
+# calcuated the local coordinates at each vetex.
+# 
+#  z : normal to the vertex 
+#  x : the  smallest  indexed neighbor vertex based unit vector 
+#  y : the remianing  axis in right handed way, ie.  z x x => y 
+def setup_vertex_local_coord(faces, vertices):
+
+    # 1.1 normal vectors (1st axis) at each vertex 
+    _, axis_z = graphutil.calc_normal_vectors(vertices, faces)
+    # 1.2 get 2nd axis  
+    axis_x = graphutil.find2ndaxis(faces, axis_z, vertices)
+    # 1.3 get 3rd axis  
+    # @TODO any way remove the for-loop?
+    axis_y = np.zeros_like(axis_x)
+    for i in range(axis_z.shape[0]):
+        axis_y[i] = np.cross(axis_z[i, :], axis_x[i,:])
+
+    return axis_x, axis_y, axis_z
+
+#
+# reporesent the displacement (now in global coord) into local coordinates  
+#
+# model: smpl mesh structure
+# v0   : reference vertex surface, ie. the body 
+# v*****array: vertext index array for interest 
+# d    : displacement, ie. v = v0 + d
+#
+def compute_displacement_at_vertex(model, v0, d_global):
+
+    debug = False 
+
+    # 1.setup local coordinate system to each vertex
+    axis_x, axis_y, axis_z = setup_vertex_local_coord(model.f, v0)
+
+    # 2. express displacement in 3 axises 
+    #dlocal = np.concatenate(np.dot(d, axis_x), np.dot(d, axis_y), np.dot(d, axis_z))
+    xl = np.sum(d_global*axis_x, axis=1)
+    yl = np.sum(d_global*axis_y, axis=1)
+    zl = np.sum(d_global*axis_z, axis=1)
+    d_local = np.stack((xl, yl, zl), axis = -1)
+    print('dlocal shape:', xl.shape, yl.shape, zl.shape,  d_local.shape)
+
+    if debug:  # verifying d_global =  xs * axis_x + ys* axis_y  + z*axis_z
+        # get global coorindate vector 
+        xg =  xl[:, None]*axis_x  
+        yg =  yl[:, None]*axis_y
+        zg =  zl[:, None]*axis_z 
+        dg  = xg + yg + zg
+         
+        # check the error 
+        err = np.absolute(dg - d_global)
+        print('d, e x:',  np.amax(d_global[:,0]), np.amax(err[:,0]), np.mean(d_global[:,0]), np.mean(err[:,0]))
+        print('d, e y:',  np.amax(d_global[:,1]), np.amax(err[:,1]), np.mean(d_global[:,1]), np.mean(err[:,1]))
+        print('d, e z:',  np.amax(d_global[:,2]), np.amax(err[:,2]), np.mean(d_global[:,2]), np.mean(err[:,2]))
+        '''
+        print('d    0:',  np.amax(d_global[:,0]), np.amin(d_global[:,0]))
+        print('error0:',  np.amax(err[:,0]), np.amin(err[:,0]))
+        print('d    1:',  np.amax(d_global[:,1]), np.amin(d_global[:,1]))
+        print('error1:',  np.amax(err[:,1]), np.amin(err[:,1]))
+        print('d    2:',  np.amax(d_global[:,2]), np.amin(d_global[:,2]))
+        print('error2:',  np.amax(err[:,2]), np.amin(err[:,2]))
+        '''
+
+    return d_local
 
 #
 # calculate pixel position of SMPL joints 
@@ -624,9 +650,28 @@ def cloth3drec_core( model,    # SMPL model
     # h vs h_ext 
     # half body image has size of h x w 
     # rendering needs full body texture image : size of h_ext x w
+    # 1. Pose to standard pose
+    if True:   # make standard pose for easier try-on
+        pose[:] = 0.0
+        pose[0] = np.pi
+        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
+        pose[16*3+2] = -7/16.0*np.pi
+        pose[17*3+2] = +7/16.0*np.pi
+        betas[:] = 0.0
+        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
+        cam.t = [0., 0.4, 25.]
+        cam.rt =  [0.,  0.,  0.]
+        cam.k = [0.,  0., 0.,  0.,  0.]
+        cam.f = [5000.,  5000.]
+        cam.c =  [ 96., 128.]    # depending on the image size
+
+    print('Final pose and betas ')
+    print('pose:',  pose.reshape([-1,3]))
+    print('betas:', betas)
+
 
     # 1. build template body model
-    body_sv = build_template_body_model(model, pose, betas, cam)
+    body_sv = build_smplbody_surface(model, pose, betas, cam)
     dist = np.abs(cam.t.r[2] - np.mean(body_sv.r, axis=0)[2])
 
     im3CBlack = np.zeros([h_ext, w, 3], dtype = np.uint8)
@@ -675,9 +720,8 @@ def cloth3drec_core( model,    # SMPL model
     cam.v =  clothed3d  # now camera  project clothed 3D vertex not body's
 
     # check the 3d cloth results 
-    pjt_v2d = cam.r.copy()
-    pjt_faces = model.f.copy()
-    show_3d_model(cam, imCloth_ext, pjt_v2d, pjt_faces)
+    texture, texture_v2d = prepare_texture(cam.r, model.f, imCloth_ext)
+    show_3d_model(cam, texture, texture_v2d, model.f) 
     _ = raw_input('next?')
 
 
@@ -699,11 +743,12 @@ def cloth3drec_core( model,    # SMPL model
     #print(imClothMask1d.shape)
     v4Cloth = np.argwhere(imClothMask1d > 0).flatten()  
 
-    print('vertices for cloth area:', v4Cloth.shape,  v4Cloth)
-    diffClothminusBody  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
-    print('diff cloth and body:', diffClothminusBody.shape, diffClothminusBody)
+    #print('vertices for cloth area:', v4Cloth.shape,  v4Cloth)
+    diffClothminusBody  =  clothed3d  - body_sv.r # getting all value is easier to coding
+    #diffClothminusBody  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
+    #print('diff cloth and body:', diffClothminusBody.shape, diffClothminusBody)
 
-    return v4Cloth, diffClothminusBody, clothed3d, imCloth_ext, pjt_v2d
+    return body_sv.r, clothed3d, diffClothminusBody, v4Cloth, texture, texture_v2d
 
 
 
@@ -712,19 +757,38 @@ def cloth3drec_core( model,    # SMPL model
 # 
 # @TODO: Do this !! the most key part combining with displacement generatrion 
 #
-#
-def re_pose_shape_cloth(cam_tgt, betas_tgt, n_betas_tgt, pose_tgt, v4cloth, diff_cloth_body):
+# model   : the body surface structure
+# body    : body surface vertices
+# vi4cloth: vertex index for the cloth surface  
+# d       : displacement vector in local coordinate 
+# 
+#def transfer_body2clothed(cam_tgt, betas_tgt, n_betas_tgt, pose_tgt, v4cloth, d):
+def transfer_body2clothed(model, body, d_local):
 
-    pass
+    # 1.setup local coordinate system to each vertex
+    axis_x, axis_y, axis_z = setup_vertex_local_coord(model.f, body)
 
-#######################################################################################
+    # 2. express local to global  
+    # 2.1 select vectices under interest
+    #axis_x, axis_y, axis_z = axis_x[vi4cloth], axis_y[vi4cloth], axis_z[vi4cloth]
+    # 2.2 displacement in global coordinate
+    xg =  (d_local[:, 0])[:, None]*axis_x  
+    yg =  (d_local[:, 1])[:, None]*axis_y
+    zg =  (d_local[:, 2])[:, None]*axis_z 
+    dg  = xg + yg + zg
+   
+    # 3. adding them to the base/body vertices 
+    clothed  = body + dg
+
+    return clothed
+
+
 # load dataset dependent files and call the core processing 
 #---------------------------------------------------------------
 # smpl_mdoel: SMPL 
 # inmodel_path : smpl param pkl file (by SMPLify) 
 # cloth_path: input image 
 # clothmask_path: mask 1-channel image 
-#######################################################################################
 def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
 
     if smpl_model is None or inmodel_path is None or cloth_path is None or clothmask_path is None:
@@ -759,34 +823,53 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     betas_src = params['betas']
     n_betas_src = betas_src.shape[0] #10
     pose_src  = params['pose']    # angles, 27x3 numpy
-    v4cloth, diff_cloth_body, clothed3d, im4tex_cloth, tex_v2d = cloth3drec_core( smpl_model, # SMPL
-                 cam_src,      # camera model, Ch
-                 betas_src,    # shape coeff, numpy
-                 n_betas_src,  # num of PCA
-                 pose_src,     # angles, 27x3 numpy
-                 imCloth,    # img numpy
-                 imClothMask, # mask 
-                 viz = True)    # display   
+    body, clothed, diff_cloth_body, vertext4cloth, texture, texture_v2d = cloth3drec_core( smpl_model, # SMPL
+                          cam_src,      # camera model, Ch
+                          betas_src,    # shape coeff, numpy
+                          n_betas_src,  # num of PCA
+                          pose_src,     # angles, 27x3 numpy
+                          imCloth,    # img numpy
+                          imClothMask, # mask 
+                          viz = True)    # display   
+
+    # express the displacement in vertice specific coordinate.
+    diff_cloth_body_local = compute_displacement_at_vertex(smpl_model, body, diff_cloth_body)
 
     # 4. (should seperate into another script file)
     # try to another shape and posed person, kind of trabsfer  
     # for test purpose, simple copy the template and repose and reshape as you like 
-    # 4.1 copy 
+    # 4.1 initial body params 
     cam_tgt = ProjectPoints(f = params['cam_f'], rt=params['cam_rt'], t=params['cam_t'], k=params['cam_k'], c= params['cam_c'])
-    cam_tgt.v = clothed3d
     pose_tgt = pose_src.copy()
     n_betas_tgt = n_betas_src
     betas_tgt = betas_src.copy()
-    # 4.2 modify pose and shape 
+    # 4.2 repose and reshape 
 
-    re_pose_shape_cloth(cam_tgt, 
-            betas_tgt,
-            n_betas_tgt,
-            pose_tgt,
-            v4cloth,
-            diff_cloth_body)
+    #pose_tgt[16*3] =  np.pi/4  # left shoulder 
+    #pose_tgt[16*3+1] =  np.pi/4  
+    pose_tgt[16*3+2] =  -np.pi/3   
+    #pose_tgt[17*3] =  np.pi/4  # right  shoulder
+    #pose_tgt[17*3+1] =  np.pi/4 
+    pose_tgt[17*3+2] =  np.pi/3 
+    #pose_tgt[18*3] =  np.pi/4  # left elbow 
+    #pose_tgt[18*3+1] =  np.pi/4  
+    pose_tgt[18*3+2] =  -np.pi/3   
+    #pose_tgt[19*3] =  np.pi/4  # right elbow
+    #pose_tgt[19*3+1] =  np.pi/4 
+    pose_tgt[19*3+2] =  np.pi/3 
 
-    show_3d_model(cam_tgt, im4tex_cloth, cam_tgt.r.copy(), smpl_model.f.copy()) # cam_tgt has all the information 
+    betas_tgt[0] = 5.0
+
+    # 4.3 build a new body 
+    body_tgt_sv = build_smplbody_surface(smpl_model, pose_tgt, betas_tgt, cam_tgt)
+
+    # 4.4 build the corresponding clothed
+    clothed3d = transfer_body2clothed(smpl_model, body_tgt_sv.r, diff_cloth_body_local)
+    cam_tgt.v = clothed3d
+    #cam_tgt.v = body_tgt_sv.r 
+
+    # 4.5 check by viewing
+    show_3d_model(cam_tgt, texture, texture_v2d, smpl_model.f) # cam_tgt has all the information 
 
     '''
     # save result for checking
