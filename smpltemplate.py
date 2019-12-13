@@ -146,26 +146,8 @@ def _examine_smpl_params(params):
 # 
 #
 #
-def build_template_body_model(model, pose, betas, cam):
+def build_body_model(model, pose, betas, cam):
 
-    # 1. Pose to standard pose   
-    if True:   # make standard pose for easier try-on 
-        pose[:] = 0.0    
-        pose[0] = np.pi  
-        # lsh = 16 rsh = 17 67.5 degree rotation around z axis
-        pose[16*3+2] = -7/16.0*np.pi  
-        pose[17*3+2] = +7/16.0*np.pi 
-        betas[:] = 0.0
-        #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
-        cam.t = [0., 0.4, 25.]
-        cam.rt =  [0.,  0.,  0.]
-        cam.k = [0.,  0., 0.,  0.,  0.]
-        cam.f = [5000.,  5000.]
-        cam.c =  [ 96., 128.]    # depending on the image size 
-
-    print('Final pose and betas ')
-    print('pose:',  pose.reshape([-1,3]))
-    print('betas:', betas)
 
     n_betas = betas.shape[0]
     viz  = False
@@ -327,8 +309,8 @@ def smpl2maskcore(cam,      # camera model, Chv
     size_ext = False
     h, w = imRGB.shape[0:2]
 
-    # 1. build template body model
-    sv = build_template_body_model(model, pose, betas, cam)
+    # 1 build SMPL model 
+    sv = build_body_model(model, pose, betas, cam)
     #sv_r = sv.r.copy()
 
     # 2. render the model with parameter
@@ -369,7 +351,7 @@ def smpl2maskcore(cam,      # camera model, Chv
         cv2.circle(imJoint, tuple(joints_np_int[i,:2]), 2, (0, 0, 255), -1) # 2D joint White
 
     # display for check results
-    if True:
+    if False:
         plt.subplot(2,2,1)
         plt.imshow(im[:,:,::-1])  # , cmap='gray')
         plt.title('rendered')
@@ -383,26 +365,18 @@ def smpl2maskcore(cam,      # camera model, Chv
         plt.imshow(imJoint[:,:,::-1])  # , cmap='gray')
         plt.title('joints')
         plt.suptitle('SMPL Template Check')
-    #_ = raw_input('next?')
+        _ = raw_input('next?')
 
     # 6. convert format 
     joints_json = cvt_joints_np2json(joints_np)  # json joints 
     #print(joints_json)
     #json.dumps(joints_json) 
 
-    params = {'cam_t': cam.t.r,   
-              'cam_rt': cam.rt.r,   
-              'cam_f': cam.f.r,   
-              'cam_k': cam.k.r,   
-              'cam_c': cam.c.r,   
-              'pose': sv.pose.r,
-              'betas': sv.betas.r}
-
 
     if size_ext :
-        return imBinary, imPart, joints_json, params
+        return imBinary, imPart, joints_json
     else:
-        return imBinary[:h,:],  imPart[:h,:], joints_json, params 
+        return imBinary[:h,:],  imPart[:h,:], joints_json 
 
 
 # load dataset dependent files and call the core processing 
@@ -439,17 +413,93 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outp
         print("cannot open",  inimg_path), exit()
 
     # 3. run the SMPL body to cloth processing 
-    cam   = params['cam']      # camera model, Ch
+    #cam   = params['cam']      # camera model, Ch
     betas = params['betas']
     n_betas = betas.shape[0] #10
     pose  = params['pose']    # angles, 27x3 numpy
-    img_mask, img_part, joints_json, params  = smpl2maskcore(params['cam'],      # camera model, Ch
-                 betas,    # shape coeff, numpy
-                 n_betas,  # num of PCA
-                 pose,     # angles, 27x3 numpy
-                 img2D,    # img numpy
-                 smpl_model, # SMPL
-                 viz = True)    # display   
+
+
+    # 4. set up model params
+    # 4.1 pose   # make standard pose for easier try-on 
+    pose[:] = 0.0    
+    pose[0] = np.pi  
+    # lsh = 16 rsh = 17 67.5 degree rotation around z axis
+    pose[16*3+2] = -7/16.0*np.pi  
+    pose[17*3+2] = +7/16.0*np.pi 
+    # 4.2 shape
+    betas[:] = 0.0 # all default 
+    betas[0] = 0.0 # size : + big, - small
+    betas[1] = 0.0 # fatness: +  slim - fat
+
+    # camera postion 
+    #cam.t = [0. , 0., 20.] - cam.t: [ 0. 0.  20.]  # [-3.12641449e-03  4.31656201e-01  2.13035413e+01]
+    cam.t = [0., 0.4, 25.]
+    cam.rt =  [0.,  0.,  0.]
+    cam.k = [0.,  0., 0.,  0.,  0.]
+    cam.f = [5000.,  5000.]
+    cam.c =  [ 96., 128.]    # depending on the image size 
+
+
+
+    beta_test = True
+
+    if beta_test:
+
+        beta0_list  = [-2.0, 0.0, +2.0]
+        beta1_list  = [-3.0, -1.0, 0.0, +1.0, +3.0]
+        for i in range(len(beta0_list)): 
+            betas[0] = beta0_list[i]
+
+            for j in range(len(beta1_list)): 
+                betas[1] = beta1_list[j]
+                params = {'cam_t': cam.t,   
+                    'cam_rt': cam.rt,   
+                    'cam_f': cam.f,   
+                    'cam_k': cam.k,   
+                    'cam_c': cam.c,   
+                    'pose':  pose,
+                    'betas': betas}
+                img_mask, _, _ = smpl2maskcore(cam,      # camera model, Ch
+                    betas,    # shape coeff, numpy
+                    n_betas,  # num of PCA
+                    pose,     # angles, 27x3 numpy
+                    img2D,    # img numpy
+                     smpl_model, # SMPL
+                    viz = True)    # display   
+
+                plt.subplot(len(beta0_list), len(beta1_list), len(beta1_list)*i+j+1)
+                plt.imshow(img_mask)
+                plt.title('beta=%3.1f,%3.1f'%(beta0_list[i],beta1_list[j]))
+                plt.show()
+
+        plt.suptitle('shape params template')
+        plt.show()
+        _ =  raw_input('next?')
+
+   
+    # final template
+    betas[1] = 3.0 
+
+    print('Final pose and betas ')
+    print('pose:',  pose.reshape([-1,3]))
+    print('betas:', betas)
+
+    params = {'cam_t': cam.t,   
+             'cam_rt': cam.rt,   
+             'cam_f': cam.f,   
+             'cam_k': cam.k,   
+              'cam_c': cam.c,   
+              'pose':  pose,
+              'betas': betas}
+
+    img_mask, img_part, joints_json = smpl2maskcore(cam,      # camera model, Ch
+             betas,    # shape coeff, numpy
+             n_betas,  # num of PCA
+              pose,     # angles, 27x3 numpy
+              img2D,    # img numpy
+              smpl_model, # SMPL
+              viz = True)    # display   
+
 
     # 3.2 save output result
     if outbinimg_path is not None:
@@ -463,7 +513,6 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outp
     if outparam_path is not None:
         with open(outparam_path, 'w') as outf:
             pickle.dump(params, outf)
-
 
 
 if __name__ == '__main__':
