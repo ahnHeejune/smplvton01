@@ -542,6 +542,24 @@ def compute_displacement_at_vertex(model, v0, d_global):
 
     return d_local
 
+
+#  
+# get subset numpy 2-D array of triangles 
+# whose all 3 vertices or one or them are included in the target vertext set 
+#
+#
+def getSubsetFaces(ifaces, set_v,  allinclusion):
+
+    flags = np.zeros(ifaces.shape[0], dtype = np.bool)
+    for i in range(ifaces.shape[0]):
+        #v1, v2, v3  = ifaces[i]
+        mask = np.isin(ifaces[i], set_v)
+        if mask[0] == True and mask[1] == True and mask[2] == True:
+                    flags[i]  = True 
+
+    return ifaces[flags,:]
+
+
 #
 # calculate pixel position of SMPL joints 
 #
@@ -723,8 +741,10 @@ def cloth3drec_core( model,    # SMPL model
 
     # check the 3d cloth results 
     texture, texture_v2d = prepare_texture(cam.r, model.f, imCloth_ext)
+    '''
     show_3d_model(cam, texture, texture_v2d, model.f) 
     _ = raw_input('next?')
+    '''
 
 
     # 4. get the cloth vertices (face?) subset and the displacement vector   
@@ -825,7 +845,7 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     betas_src = params['betas']
     n_betas_src = betas_src.shape[0] #10
     pose_src  = params['pose']    # angles, 27x3 numpy
-    body, clothed, diff_cloth_body, vertext4cloth, texture, texture_v2d = cloth3drec_core( smpl_model, # SMPL
+    body, clothed, diff_cloth_body, vertex4cloth, texture, texture_v2d = cloth3drec_core( smpl_model, # SMPL
                           cam_src,      # camera model, Ch
                           betas_src,    # shape coeff, numpy
                           n_betas_src,  # num of PCA
@@ -833,6 +853,11 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
                           imCloth,    # img numpy
                           imClothMask, # mask 
                           viz = True)    # display   
+
+    face4cloth = getSubsetFaces(smpl_model.f, vertex4cloth, True)
+    show_3d_model(cam_src, texture, texture_v2d, face4cloth) # model.f) 
+    _ = raw_input('next?')
+
 
     # express the displacement in vertice specific coordinate.
     diff_cloth_body_local = compute_displacement_at_vertex(smpl_model, body, diff_cloth_body)
@@ -871,7 +896,7 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     #cam_tgt.v = body_tgt_sv.r 
 
     # 4.5 check by viewing
-    show_3d_model(cam_tgt, texture, texture_v2d, smpl_model.f) # cam_tgt has all the information 
+    show_3d_model(cam_tgt, texture, texture_v2d, face4cloth)  # smpl_model.f) # cam_tgt has all the information 
 
     '''
     # save result for checking
