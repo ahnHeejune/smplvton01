@@ -650,6 +650,7 @@ def cloth3drec_core( model,    # SMPL model
     # h vs h_ext 
     # half body image has size of h x w 
     # rendering needs full body texture image : size of h_ext x w
+    '''
     # 1. Pose to standard pose
     if True:   # make standard pose for easier try-on
         pose[:] = 0.0
@@ -669,6 +670,7 @@ def cloth3drec_core( model,    # SMPL model
     print('pose:',  pose.reshape([-1,3]))
     print('betas:', betas)
 
+   '''
 
     # 1. build template body model
     body_sv = build_smplbody_surface(model, pose, betas, cam)
@@ -845,20 +847,20 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     betas_tgt = betas_src.copy()
     # 4.2 repose and reshape 
 
-    #pose_tgt[16*3] =  np.pi/4  # left shoulder 
-    #pose_tgt[16*3+1] =  np.pi/4  
-    pose_tgt[16*3+2] =  -np.pi/3   
+    #pose_tgt[16*3] =  np.pi/4  # left shoulder # rotate 
+    pose_tgt[16*3+1] =  -np.pi/3 # front/back 
+    #pose_tgt[16*3+2] =  -np.pi/3  # side    
     #pose_tgt[17*3] =  np.pi/4  # right  shoulder
-    #pose_tgt[17*3+1] =  np.pi/4 
-    pose_tgt[17*3+2] =  np.pi/3 
+    pose_tgt[17*3+1] =  np.pi/3 
+    #pose_tgt[17*3+2] =  -np.pi/3 
     #pose_tgt[18*3] =  np.pi/4  # left elbow 
-    #pose_tgt[18*3+1] =  np.pi/4  
-    pose_tgt[18*3+2] =  -np.pi/3   
+    #pose_tgt[18*3+1] =  np.pi/3 
+    #pose_tgt[18*3+2] =   np.pi/6   
     #pose_tgt[19*3] =  np.pi/4  # right elbow
     #pose_tgt[19*3+1] =  np.pi/4 
-    pose_tgt[19*3+2] =  np.pi/3 
+    #pose_tgt[19*3+2] =  np.pi/6 
 
-    betas_tgt[0] = 5.0
+    betas_tgt[1] = 0.0
 
     # 4.3 build a new body 
     body_tgt_sv = build_smplbody_surface(smpl_model, pose_tgt, betas_tgt, cam_tgt)

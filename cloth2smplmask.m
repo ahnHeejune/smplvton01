@@ -79,7 +79,7 @@ if smpl_model
     smpl_mask_original = imread('templatemask.png');  %'smplmaskref.png');
     smpl_mask_long = smpl_mask_original;  % it is deep copy in matlab
     smpl_mask_long(200:end, :) = 0; % hide the hands and legs for maskt 
-    smpl_mask_long(1:65, :) = 0; % hide neck and head 
+    smpl_mask_long(1:55, :) = 0; % hide neck and head 
     
     smpl_mask_short = smpl_mask_long;  % it is deep copy in matlab
     % get the body bounddary
@@ -137,9 +137,7 @@ for i = 1:length(image1) % only run over 1 image (for now)
     elseif  i == 2 || i == 3
         smpl_mask = smpl_mask_short;
     end  
-        
-    
-    
+           
     image_name1 = image1{i};
     image_name2 = image2{i};
     
@@ -191,11 +189,24 @@ for i = 1:length(image1) % only run over 1 image (for now)
         V2 = imresize(double(V2.mask), [h,w]);
     else
         V2 = imread([MASK_DIR, image_name1]);  %% stupid JPEG
-        V2 = (V2 > 128);
-        V2 = imresize(double(V2), [h,w],'nearest');
+        
+        if false
+            V2 = (V2 > 128);
+            V2 = imresize(double(V2), [h,w],'nearest');
+        else
+            V2 = (V2 > 128);
+            V2 = imresize(double(V2), [h,w],'nearest');
+          
+            % modifying the segementation  
+            % If we do here, the warping get worse, so we move this after
+            % warping 
+            SE = strel('rectangle',[3,3]);
+            V2 = imerode(V2, SE);
+        end     
         
         cloth = imread([CLOTH_DIR, image_name1]);
         cloth = imresize(cloth, [h,w]);
+        
     end    
    
     if backward
@@ -253,8 +264,14 @@ for i = 1:length(image1) % only run over 1 image (for now)
               tic;[keypoints1, keypoints2, warp_points0, warped_cloth, warped_mask] = tps_main(V2, V1, n_control, im2double(cloth), orig_im_mask, 0);toc;
               warped_mask(isnan(warped_mask)) = 0.0; 
               
+              if false
+                SE = strel('rectangle',[2,2]);
+                warped_mask = imerode(warped_mask, SE);
+              end
+              
               %tic;[keypoints1, keypoints2, warp_points0, warped_cloth] = tps_main(V2, V1, n_control, im2double(cloth), 0);toc;
               warped_cloth(isnan(warped_cloth)) = 255.0; 
+              
         
         else
               tic;[keypoints1, keypoints2, warp_points0, warp_im] = tps_main(V1, V2, n_control, orig_im, 0);toc;
@@ -271,9 +288,15 @@ for i = 1:length(image1) % only run over 1 image (for now)
     % CHECK the input to Shape Context 
     figure(fig);
     subplot(2,4,5);
-    imagesc(orig_im_mask); %imshow(uint8(orig_im*255.0));  % instead of imagesc(V1)
+    
+     cloth_w_mask = zeros(size(cloth));
+     cloth_w_mask(1:end,1:end,1)  = im2double(cloth(1:end, 1:end, 1)) .* V2;
+     cloth_w_mask(1:end,1:end,2)  = im2double(cloth(1:end, 1:end, 2)).* V2;
+     cloth_w_mask(1:end,1:end,3)  = im2double(cloth(1:end, 1:end, 3)).* V2;
+    
+    imagesc(cloth_w_mask); %imshow(uint8(orig_im*255.0));  % instead of imagesc(V1)
     axis('image');
-    title('orig im');
+    title('orig im and mask');
     
     subplot(2,4,6);
     imagesc(warped_mask); %imshow(uint8(warp_im*255.0));

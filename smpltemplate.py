@@ -478,7 +478,7 @@ def smpl2mask_single(smpl_model, inmodel_path, inimg_path, outbinimg_path,  outp
 
    
     # final template
-    betas[1] = 3.0 
+    betas[1] = 1.0 
 
     print('Final pose and betas ')
     print('pose:',  pose.reshape([-1,3]))
