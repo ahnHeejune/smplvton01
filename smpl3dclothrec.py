@@ -553,9 +553,11 @@ def getSubsetFaces(ifaces, set_v,  allinclusion):
     flags = np.zeros(ifaces.shape[0], dtype = np.bool)
     for i in range(ifaces.shape[0]):
         #v1, v2, v3  = ifaces[i]
-        mask = np.isin(ifaces[i], set_v)
-        if mask[0] == True and mask[1] == True and mask[2] == True:
-                    flags[i]  = True 
+        mask_v = np.isin(ifaces[i], set_v)
+        if (mask_v[0] == True) and (mask_v[1] == True) and (mask_v[2] == True):
+            flags[i]  = True 
+        #else:
+        #   flags[i]  = False 
 
     return ifaces[flags,:]
 
@@ -690,14 +692,16 @@ def cloth3drec_core( model,    # SMPL model
 
    '''
 
-    # 1. build template body model
+    # 1. Prepare input images and masks 
+    # 1.1 build template body model
     body_sv = build_smplbody_surface(model, pose, betas, cam)
     dist = np.abs(cam.t.r[2] - np.mean(body_sv.r, axis=0)[2])
-
     im3CBlack = np.zeros([h_ext, w, 3], dtype = np.uint8)
     imBackground = im3CBlack
     imBodyRGB = (render_model(
     body_sv.r, model.f, w, h_ext, cam, far= 20 + dist, img=imBackground[:, :, ::-1]) * 255.).astype('uint8')
+
+    # 1.2 source cloth image and mask  (extension for the same size as body silhouette)
     imClothedMask = cv2.cvtColor(imBodyRGB, cv2.COLOR_BGR2GRAY)  # gray silhouette  
     imClothedMask[imClothedMask > 0] = 255  # binary (0, 1)
     #imClothedMask[imClothMask[:,:] > 0]  = 255   # union of body and .....
@@ -715,12 +719,10 @@ def cloth3drec_core( model,    # SMPL model
         plt.show()
         _ = raw_input('next?')
 
-    # 2. 2D cloth vertics position from body vertices   
+    # 2. Derive 2D cloth vertics position from body vertices using 2-D deformation    
     j2d = calculate_joints(cam, model, body_sv, betas, h_ext, w)
     j2d_wo_confidence = j2d[:,:2]
-
     cam.v = body_sv
-
     clothed2d = construct_clothed2d_from_body(model, body_sv, j2d_wo_confidence, cam, imClothedMask)
     if True: # show the clothed 2d vertices   
         marksize = 1
@@ -739,32 +741,72 @@ def cloth3drec_core( model,    # SMPL model
     clothed3d = construct_clothed3d_from_clothed2d_depth(body_sv, cam, clothed2d)
     cam.v =  clothed3d  # now camera  project clothed 3D vertex not body's
 
-    # check the 3d cloth results 
-    texture, texture_v2d = prepare_texture(cam.r, model.f, imCloth_ext)
-    '''
-    show_3d_model(cam, texture, texture_v2d, model.f) 
-    _ = raw_input('next?')
-    '''
 
-
-    # 4. get the cloth vertices (face?) subset and the displacement vector   
-    #print(cam.r.shape) 
-    #print(imClothMask.shape)  
-    #print(imClothMask[cam.r.astype(np.uint8)].shape)  
-    pjt_positions = cam.r.astype(np.uint8)  
-    print(imClothMask[pjt_positions].shape)  
+    # 4. Rendering texture 
+    # 4.1 updatng the cloth mask and image at boundary 
     '''
     imClothMask1d = imClothMask[t].flatten()  
     print(imClothMask1d.shape)
     print(imClothMask1dv4Cloth)
     '''
+    # extend the mask boundary  for hide the mismatch beween mask and image for rendering texture
+    kernel = np.ones((3,3),np.uint8)
+    imClothMask_ext_raw = imClothMask_ext.copy()
+    imClothMask_ext = cv2.dilate(imClothMask_ext, kernel, iterations = 2)
+
+    # modify the boundary 
+    imClothMask_ext_bndry = imClothMask_ext.copy()
+    imClothMask_ext_bndry[imClothMask_ext_raw > 0]  = 0
+
+    imCloth_ext_bndry = imCloth_ext.copy()
+    imCloth_ext_bndry[:,:,0] = cv2.dilate(imCloth_ext[:,:,0], kernel, iterations = 2)
+    imCloth_ext_bndry[:,:,1] = cv2.dilate(imCloth_ext[:,:,1], kernel, iterations = 2)
+    imCloth_ext_bndry[:,:,2] = cv2.dilate(imCloth_ext[:,:,2], kernel, iterations = 2)
+    #imCloth_ext[imClothMask_ext_bndry > 0, :] = (255, 0, 0) # draw the boundary with Blue  
+    imCloth_ext[imClothMask_ext_bndry > 0, :] = imCloth_ext_bndry[imClothMask_ext_bndry > 0, :]  
+
+    if True:
+        plt.subplot(1,2,1)
+        plt.imshow(imCloth_ext[:,:,::-1])
+        plt.subplot(1,2,2)
+        #plt.imshow(imCloth_ext_not_modified[:,:,::-1])
+        plt.imshow(imClothMask_ext_bndry)
+        plt.show()
+        _ = raw_input('next?')
+
+    # 4.2 Prepare Rendering Texture 
+    texture, texture_v2d = prepare_texture(cam.r, model.f, imCloth_ext)
+
+
+    # 5. Collect the vertices for the cloth  surface
+    #print(cam.r.shape) 
+    #print(imauto-normals.ClothMask.shape)  
+    #print(imClothMask[cam.r.astype(np.uint8)].shape)  
+    pjt_positions = cam.r.astype(np.uint8)  
+    print(imClothMask[pjt_positions].shape)  
+
     # @TODO anyone can simplify this code, not using the ugly for-loop?
     imClothMask1d = np.zeros([pjt_positions.shape[0]], dtype='uint8')
     for i in range(pjt_positions.shape[0]):
-       imClothMask1d[i] = imClothMask[pjt_positions[i,1], pjt_positions[i,0]] 
+       imClothMask1d[i] = imClothMask_ext[pjt_positions[i,1], pjt_positions[i,0]] 
     #print(imClothMask1d.shape)
     v4Cloth = np.argwhere(imClothMask1d > 0).flatten()  
 
+    # check v4Cloth is right?, ie. it mapped onto the cloth 
+    if False: #   
+        marksize = 1
+        imTest = np.zeros([h_ext, w], dtype='uint8') #  blank background image
+        for i in range(v4Cloth.shape[0]):
+            iv = v4Cloth[i]
+            x, y = int(pjt_positions[iv, 0]), int(pjt_positions[iv,1])
+            imTest[y-marksize:y+marksize, x-marksize:x+marksize] = 255
+        plt.imshow(imTest)
+        plt.draw()
+        plt.show()
+        _ = raw_input('next?')
+
+
+    # 6. get the displacement vectors 
     #print('vertices for cloth area:', v4Cloth.shape,  v4Cloth)
     diffClothminusBody  =  clothed3d  - body_sv.r # getting all value is easier to coding
     #diffClothminusBody  =  clothed3d[v4Cloth]  - body_sv.r[v4Cloth]
