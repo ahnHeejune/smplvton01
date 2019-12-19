@@ -47,15 +47,15 @@ CoI:  Matiur R  (SeoulTech), Paul Rosin (Cardiff U), Yukun Lai (Cardiff U)
     |  image/<vitonhnum>.jpg               |                                              | 
     |              |                       |                                              | 
     |          +---v---------+             |                                              |
-    |          | sort_unsort |----------------------------------------+                   |
-    |          +---|---------+             |                          |                   |
-    |              v                       |                          |                   |
-    |            <hnum>.png -----+         +----------------------+   |    +--------------+
-    |                            |                                |   |    | 
-    |                         +--v------------+               +---v---v----v---+   results/<dataset>        
-  +-v---------+               : img2smplviton :-------------->: smpl3dclothxfer|     /c3dw/<cnum>_<vitonhnum>.png 
-  |cvtjoint_  --->vition.npz-->  (python)     :<humannum>.pkl :                |---> /c3dwmask/<cnum>_<viton_hnum>.png  
-  |viton2smpl*|              +---------------+               +--------^-------+           | 
+    |          | sort_unsort |------------------------+                                  |
+    |          +---|---------+             |          |                                  |
+    |              v                       |          |                                  |
+    |            <hnum>.png -----+         +----------------------+       +--------------+
+    |                            |                    |           |       | 
+    |                         +--v------------+       |       +---v--------v---+   results/<dataset>        
+  +-v---------+               : img2smplviton :-------v------>: smpl3dclothxfer|     /c3dw/<cnum>_<vitonhnum>.png 
+  |cvtjoint_  ->est_joints.npz->  (python)    :<hnum> => <vitonhnum>           |---> /c3dwmask/<cnum>_<viton_hnum>.png  
+  |viton2smpl*|               +---------------+               +--------^-------+           | 
   +-----------+                                                       |                   |
                                +--------------------------------------|-------------------+
                                |                                      |

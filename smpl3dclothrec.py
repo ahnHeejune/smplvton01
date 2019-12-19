@@ -893,6 +893,13 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     show_3d_model(cam_src, texture, texture_v2d, face4cloth) # model.f) 
     _ = raw_input('next?')
 
+    return params, body, diff_cloth_body, texture, texture_v2d, face4cloth 
+
+
+def cloth3drec_single_xfer_test(smpl_model, inmodel_path, cloth_path, clothmask_path):
+
+
+    params, body, diff_cloth_body, texture, texture_v2d, face4cloth = cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path)
 
     # express the displacement in vertice specific coordinate.
     diff_cloth_body_local = compute_displacement_at_vertex(smpl_model, body, diff_cloth_body)
@@ -902,9 +909,12 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
     # for test purpose, simple copy the template and repose and reshape as you like 
     # 4.1 initial body params 
     cam_tgt = ProjectPoints(f = params['cam_f'], rt=params['cam_rt'], t=params['cam_t'], k=params['cam_k'], c= params['cam_c'])
-    pose_tgt = pose_src.copy()
-    n_betas_tgt = n_betas_src
-    betas_tgt = betas_src.copy()
+    betas_tgt = params['betas']
+    n_betas_tgt = betas_tgt.shape[0] #10
+    pose_tgt  = params['pose']    # angles, 27x3 numpy
+    #pose_tgt = pose_src.copy()
+    #n_betas_tgt = n_betas_src
+    #betas_tgt = betas_src.copy()
     # 4.2 repose and reshape 
 
     #pose_tgt[16*3] =  np.pi/4  # left shoulder # rotate 
@@ -1034,9 +1044,11 @@ if __name__ == '__main__':
     #jointfile_path = smpljson_dir + '/%06d_0.json'% idx 
     '''
     smpl_model = model_female
-    cloth3drec_single(smpl_model, smplparam_path, cloth_path, clothmask_path)
-
-
+    if True:  # 3D reconstrction only  
+        cloth3drec_single(smpl_model, smplparam_path, cloth_path, clothmask_path)
+    else:     # 3D reconstruction and tranfer it to a define smpl model
+        cloth3drec_single_xfer_test(smpl_model, smplparam_path, cloth_path, clothmask_path)
+        
     '''
     for idx in range(idx_s, idx_e):
 
