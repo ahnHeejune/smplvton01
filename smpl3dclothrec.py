@@ -489,10 +489,7 @@ def setup_vertex_local_coord(faces, vertices):
     # 1.2 get 2nd axis  
     axis_x = graphutil.find2ndaxis(faces, axis_z, vertices)
     # 1.3 get 3rd axis  
-    # @TODO any way remove the for-loop?
-    axis_y = np.zeros_like(axis_x)
-    for i in range(axis_z.shape[0]):
-        axis_y[i] = np.cross(axis_z[i, :], axis_x[i,:])
+    axis_y = np.cross(axis_z[:, :], axis_x[:,:])  # matuir contribution. np.cross support row-vectorization
 
     return axis_x, axis_y, axis_z
 
@@ -783,12 +780,8 @@ def cloth3drec_core( model,    # SMPL model
     #print(imauto-normals.ClothMask.shape)  
     #print(imClothMask[cam.r.astype(np.uint8)].shape)  
     pjt_positions = cam.r.astype(np.uint8)  
-    print(imClothMask[pjt_positions].shape)  
-
-    # @TODO anyone can simplify this code, not using the ugly for-loop?
-    imClothMask1d = np.zeros([pjt_positions.shape[0]], dtype='uint8')
-    for i in range(pjt_positions.shape[0]):
-       imClothMask1d[i] = imClothMask_ext[pjt_positions[i,1], pjt_positions[i,0]] 
+    #print(imClothMask[pjt_positions].shape)  
+    imClothMask1d = imClothMask_ext[pjt_positions[:,1], pjt_positions[:,0]]  # Matuir contribution 
     #print(imClothMask1d.shape)
     v4Cloth = np.argwhere(imClothMask1d > 0).flatten()  
 

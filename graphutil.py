@@ -158,21 +158,9 @@ def find2ndaxis(faces, v_normal, v_ref):
     ngbr_vertex =  n_vertex*np.ones(v_ref.shape[0], dtype = np.int64)
     for fidx, fv in enumerate(faces):
          v0, v1, v2 =  fv
-         # v0 
-         if ngbr_vertex[v0] > v1:
-             ngbr_vertex[v0] = v1
-         if ngbr_vertex[v0] > v2:
-             ngbr_vertex[v0] = v2
-         # v1
-         if ngbr_vertex[v1] > v0:
-             ngbr_vertex[v1] = v0
-         if ngbr_vertex[v1] > v2:
-             ngbr_vertex[v1] = v2
-         # v2 
-         if ngbr_vertex[v2] > v1:
-             ngbr_vertex[v2] = v1
-         if ngbr_vertex[v2] > v0:
-             ngbr_vertex[v2] = v0
+         if ngbr_vertex[v0] > min(v1, v2): ngbr_vertex[v0] = min(v1, v2) # short-form by Matuir
+         if ngbr_vertex[v1] > min(v0, v2): ngbr_vertex[v1] = min(v0, v2) 
+         if ngbr_vertex[v2] > min(v1, v0): ngbr_vertex[v2] = min(v1, v0)
 
     # check results 
     if debug:
