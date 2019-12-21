@@ -709,7 +709,7 @@ def cloth3drec_core( model,    # SMPL model
     imCloth_ext[:h,:,:]  =  imCloth[:,:, :]
     imCloth_ext[imClothMask_ext <= 0]  =  0  # black out  
     imBodyRGB[imClothMask_ext > 0] =  imCloth_ext[imClothMask_ext > 0] 
-    if True: # show cloth  overlayed on smpl  
+    if viz: # show cloth  overlayed on smpl  
         plt.imshow(imBodyRGB[:h,:, ::-1])
         #plt.imshow(imClothedMask)
         plt.draw()
@@ -721,7 +721,7 @@ def cloth3drec_core( model,    # SMPL model
     j2d_wo_confidence = j2d[:,:2]
     cam.v = body_sv
     clothed2d = construct_clothed2d_from_body(model, body_sv, j2d_wo_confidence, cam, imClothedMask)
-    if True: # show the clothed 2d vertices   
+    if viz: # show the clothed 2d vertices   
         marksize = 1
         imClothed2d = np.zeros([h_ext, w], dtype='uint8') #  blank background image
         for i in range(clothed2d.shape[0]): 
@@ -762,7 +762,7 @@ def cloth3drec_core( model,    # SMPL model
     #imCloth_ext[imClothMask_ext_bndry > 0, :] = (255, 0, 0) # draw the boundary with Blue  
     imCloth_ext[imClothMask_ext_bndry > 0, :] = imCloth_ext_bndry[imClothMask_ext_bndry > 0, :]  
 
-    if True:
+    if viz:
         plt.subplot(1,2,1)
         plt.imshow(imCloth_ext[:,:,::-1])
         plt.subplot(1,2,2)
@@ -846,7 +846,7 @@ def transfer_body2clothed(model, body, d_local):
 # inmodel_path : smpl param pkl file (by SMPLify) 
 # cloth_path: input image 
 # clothmask_path: mask 1-channel image 
-def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
+def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path, viz = False):
 
     if smpl_model is None or inmodel_path is None or cloth_path is None or clothmask_path is None:
         print('There is None inputs'), exit()
@@ -887,7 +887,7 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
                           pose_src,     # angles, 27x3 numpy
                           imCloth,    # img numpy
                           imClothMask, # mask 
-                          viz = True)    # display   
+                          viz = viz)    # display   
 
     face4cloth = getSubsetFaces(smpl_model.f, vertex4cloth, True)
     show_3d_model(cam_src, texture, texture_v2d, face4cloth) # model.f) 
@@ -899,7 +899,7 @@ def cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path):
 def cloth3drec_single_xfer_test(smpl_model, inmodel_path, cloth_path, clothmask_path):
 
 
-    params, body, diff_cloth_body, texture, texture_v2d, face4cloth = cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path)
+    params, body, diff_cloth_body, texture, texture_v2d, face4cloth = cloth3drec_single(smpl_model, inmodel_path, cloth_path, clothmask_path, True)
 
     # express the displacement in vertice specific coordinate.
     diff_cloth_body_local = compute_displacement_at_vertex(smpl_model, body, diff_cloth_body)
@@ -1045,7 +1045,7 @@ if __name__ == '__main__':
     '''
     smpl_model = model_female
     if True:  # 3D reconstrction only  
-        cloth3drec_single(smpl_model, smplparam_path, cloth_path, clothmask_path)
+        cloth3drec_single(smpl_model, smplparam_path, cloth_path, clothmask_path, True)
     else:     # 3D reconstruction and tranfer it to a define smpl model
         cloth3drec_single_xfer_test(smpl_model, smplparam_path, cloth_path, clothmask_path)
         

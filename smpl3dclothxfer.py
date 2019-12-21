@@ -268,64 +268,62 @@ def transfer_body2clothed(model, body, d_local):
 
 
 # display 3d model
-
-def show_human(cam, _texture, texture_v2d, faces, imHuman):
+def render_cloth(cam, _texture, texture_v2d, faces, imHuman):
 
     #h, w = imTexture.shape[:2]
-    h, w = _texture.shape[:2]
+    h_ext, w = _texture.shape[:2]   # full body 
+    h, _= imHuman.shape[:2]         # half body 
+
+    texture = _texture[:,:, :]
+
+    # 1. texture rendereriing
     dist = 20.0
+    cloth_renderer = smpl3dclothrec.build_texture_renderer(cam, cam.v, faces, texture_v2d, faces,
+                                 texture[::-1, :, :], w, h_ext, 1.0, near=0.5, far=20 + dist)
+    imCloth  = (cloth_renderer.r * 255.).astype('uint8')
+    imCloth = imCloth[:h,:,::-1]
 
-    texture = _texture
+    # 2. mask  generation 
+    im3CBlack = np.zeros([h, w, 3], dtype = np.uint8)
+    imModel = (render_model(
+        cam.v, faces, w, h, cam, far= 20 + dist, img=im3CBlack) * 255.).astype('uint8')
+    imMask = cv2.cvtColor(imModel, cv2.COLOR_BGR2GRAY)  # gray silhouette
+    imMask[imMask > 0] = 255  # binary (0, 1)
 
-    # 1. build texture renderer
-    texture_renderer = smpl3dclothrec.build_texture_renderer(cam, cam.v, faces, texture_v2d, faces,
-                                 texture[::-1, :, :], w, h, 1.0, near=0.5, far=20 + dist)
-    #textured_cloth2d = texture_renderer.r
+    # 3. image overlay to check result 
+    imBG = imHuman[:,:,::-1].astype('float32')/255.0
+    overlay_renderer = smpl3dclothrec.build_texture_renderer(cam, cam.v, faces, texture_v2d, faces,
+            texture[::-1, :, :], w, h, 1.0, near=0.5, far=20 + dist, background_image = imBG)
+    imOverlayed = overlay_renderer.r.copy()
+
 
     # plt.figure()
     plt.subplot(1, 4, 1)
     plt.axis('off')
-    plt.imshow(texture[:,:,::-1])
+    plt.imshow(texture[:h,:,::-1])
     plt.title('texture')
 
     plt.subplot(1, 4, 2)
-    plt.imshow(texture_renderer.r)
+    plt.imshow(imCloth[:,:,::-1])
     plt.axis('off')
     plt.title('transfered')
 
     plt.subplot(1, 4, 3)
-    plt.imshow(texture_renderer.r)  # @TODO use color render for mask or all whilte color for the cloth area texture  
+    plt.imshow(imMask)  # @TODO use color render for mask or all whilte color for the cloth area texture  
     plt.axis('off')
     plt.title('mask')
 
     plt.subplot(1, 4, 4)
-    plt.imshow(imHuman[:,:,::-1]) # @overlay with human image  
+    plt.imshow(imOverlayed[:,:,:]) # @overlay with human image  
     plt.axis('off')
     plt.title('target human')
-
-    '''
-    rot_axis = 1
-    rotation = ch.zeros(3)
-    rotation[rot_axis] = np.pi/4
-    img0 = texture_renderer.r[:, :, ::-1]*255.0
-    img0 = img0.astype('uint8')
-    for i in range(4):
-        plt.subplot(1, 5, i+2)
-        #plt.imshow(pjt_R.r)
-        plt.imshow(texture_renderer.r)
-        plt.axis('off')
-        #plt.draw()
-        #plt.show()
-        #plt.title('angle =%f'%yaw)
-        plt.title('%.0f degree' % (i*45))
-        cam.v = cam.v.dot(Rodrigues(rotation))
-    '''
-
     plt.show()
 
+    return imCloth, imMask 
 
 
-def cloth3dxfer_single(smpl_model, src_param_path, tgt_param_path, cloth_path, clothmask_path, human_path):
+
+def cloth3dxfer_single(smpl_model, src_param_path, tgt_param_path, cloth_path, clothmask_path, human_path, ocloth_path, omask_path):
 
     # 1. reconstruct 3D cloth from template 
     params_src, body, diff_cloth_body, texture, texture_v2d, face4cloth = smpl3dclothrec.cloth3drec_single(smpl_model, src_param_path, cloth_path, clothmask_path)
@@ -356,18 +354,18 @@ def cloth3dxfer_single(smpl_model, src_param_path, tgt_param_path, cloth_path, c
 
     # 4.5 check by viewing
     imHuman = cv2.imread(human_path)
-    show_human(cam_tgt, texture, texture_v2d, face4cloth, imHuman)  # smpl_model.f) # cam_tgt has all the information 
+    imCloth3dWarped, imClothMask3dWarped = render_cloth(cam_tgt, texture, texture_v2d, face4cloth, imHuman)  # smpl_model.f) # cam_tgt has all the information 
     #smpl3dclothrec.show_3d_model(cam_tgt, texture, texture_v2d, face4cloth)  # smpl_model.f) # cam_tgt has all the information 
     _ = raw_input("next sample?") 
-    plt.close() # not to draw in subplot() 
-    '''
-    # save result for checking
-    if outimg_path is not None:
-       cv2.imwrite(outimg_path, img_mask)
-    if outjoint_path is not None:
-        with  open(outjoint_path, 'w') as joint_file:
-            json.dump(joints_json, joint_file)
-    '''
+    plt.subplot(1, 1, 1) # restore the plot section 
+    #plt.close() # not to draw in subplot() 
+
+
+    # save result 
+    if ocloth_path is not None:
+       cv2.imwrite(ocloth_path, imCloth3dWarped)
+    if omask_path is not None:
+       cv2.imwrite(omask_path, imClothMask3dWarped)
 
 if __name__ == '__main__':
 
@@ -444,12 +442,12 @@ if __name__ == '__main__':
     '''
 
     # 2.3. Output Directory 
-    out_cloth_dir = data_dir + "/c3dw"
-    if not exists(out_cloth_dir):
-        makedirs(out_cloth_dir)
-    out_cloth_mask_dir = data_dir + "/c3dwmask"
-    if not exists(out_cloth_mask_dir):
-        makedirs(out_cloth_mask_dir)
+    ocloth_dir = data_dir + "/c3dw"
+    if not exists(ocloth_dir):
+        makedirs(ocloth_dir)
+    ocloth_mask_dir = data_dir + "/c3dwmask"
+    if not exists(ocloth_mask_dir):
+        makedirs(ocloth_mask_dir)
 
     #smplmask_path = smplmask_dir + '/%06d_0.png'% idx 
     #jointfile_path = smpljson_dir + '/%06d_0.json'% idx 
@@ -485,6 +483,8 @@ if __name__ == '__main__':
         human_image_path = human_dir + '/' + test_pairs[i][0] + '.jpg' 
         cloth_path = cloth_dir + '/' + test_pairs[i][1] + '.png' 
         clothmask_path = cloth_mask_dir + '/' + test_pairs[i][1] + '.png' 
-        cloth3dxfer_single(smpl_model, template_smpl_param_path, human_smpl_param_path, cloth_path, clothmask_path, human_image_path)
+        ocloth_path = ocloth_dir + '/' + test_pairs[i][1] +  '_' + test_pairs[i][0] + '.png' 
+        oclothmask_path = ocloth_mask_dir + '/' + test_pairs[i][1] + '_' + test_pairs[i][0] + '.png' 
+        cloth3dxfer_single(smpl_model, template_smpl_param_path, human_smpl_param_path, cloth_path, clothmask_path, human_image_path, ocloth_path, oclothmask_path)
 
 
