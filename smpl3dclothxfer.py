@@ -360,6 +360,11 @@ def cloth3dxfer_single(smpl_model, src_param_path, tgt_param_path, cloth_path, c
     plt.subplot(1, 1, 1) # restore the plot section 
     #plt.close() # not to draw in subplot() 
 
+    # make white background
+    img_white = np.zeros([imCloth3dWarped.shape[0], imCloth3dWarped.shape[1], 3],dtype=np.uint8)
+    img_white.fill(255)
+    # or img_white[:] = 255
+    imCloth3dWarped = img_white + imCloth3dWarped
 
     # save result 
     if ocloth_path is not None:
@@ -481,10 +486,10 @@ if __name__ == '__main__':
         smpl_model = model_female
         human_smpl_param_path = human_smpl_param_dir + '/' + test_pairs[i][0] + '.pkl' 
         human_image_path = human_dir + '/' + test_pairs[i][0] + '.jpg' 
-        cloth_path = cloth_dir + '/' + test_pairs[i][1] + '.png' 
-        clothmask_path = cloth_mask_dir + '/' + test_pairs[i][1] + '.png' 
-        ocloth_path = ocloth_dir + '/' + test_pairs[i][1] +  '_' + test_pairs[i][0] + '.png' 
-        oclothmask_path = ocloth_mask_dir + '/' + test_pairs[i][1] + '_' + test_pairs[i][0] + '.png' 
+        cloth_path = cloth_dir + '/' + test_pairs[i][1] + '.png'
+        clothmask_path = cloth_mask_dir + '/' + test_pairs[i][1] + '.png'
+        ocloth_path = ocloth_dir + '/' + test_pairs[i][1] +  '_' + test_pairs[i][0] + '.jpg'  # '.png'
+        oclothmask_path = ocloth_mask_dir + '/' + test_pairs[i][1] + '_' + test_pairs[i][0] + '.jpg'  # '.png'
         cloth3dxfer_single(smpl_model, template_smpl_param_path, human_smpl_param_path, cloth_path, clothmask_path, human_image_path, ocloth_path, oclothmask_path)
 
 
