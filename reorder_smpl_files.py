@@ -45,8 +45,6 @@ def reorder_smpl_params(list_file, smpl_dir):
 
         print("Converting " + src_smpl_path + " to " + fname.split(" ")[0].replace(".jpg", ".pkl"))
         count = count + 1
-        if count == 1000:
-            break
 
 
 if __name__ =='__main__':
