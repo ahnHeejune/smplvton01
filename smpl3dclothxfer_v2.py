@@ -280,7 +280,7 @@ def render_cloth(cam, _texture, texture_v2d, faces, imHuman):
 
     texture = _texture[:, :, :]
 
-    # 1. texture rendereriing
+    # 1. texture rendering
     dist = 20.0
     cloth_renderer = smpl3dclothrec_v2.build_texture_renderer(cam, cam.v, faces, texture_v2d, faces,
                                                            texture[::-1, :, :], w, h_ext, 1.0, near=0.5, far=20 + dist)
@@ -465,8 +465,7 @@ if __name__ == '__main__':
     '''
 
     # 2.3. Output Directory
-    #ocloth_dir = data_dir + "/c3dw"
-    ocloth_dir = data_dir + "/c3dw-transparent"
+    ocloth_dir = data_dir + "/c3dw"
     if not exists(ocloth_dir):
         makedirs(ocloth_dir)
     ocloth_mask_dir = data_dir + "/c3dwmask"

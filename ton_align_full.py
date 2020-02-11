@@ -1,3 +1,8 @@
+"""
+	Try-on 3D warped cloth with target human by part-alignment
+	Run with Python 3.x 
+"""
+
 import os
 import cv2
 from PIL import Image
@@ -134,12 +139,12 @@ def ton_align(im_path, im_parse_path, im_parse_vis_path, c_name, c_path, save_di
 
 
 def main():
-	save_dir = "D:/Research/Fashion-Project-SeoulTech/9. 3D VTON/Results/SMPL-VTON-v2/TON-align-full"
+	save_dir = "D:/Research/Fashion-Project-SeoulTech/9. 3D VTON/Results/SMPL-VTON-v2/TON-align"
 	if not os.path.exists(save_dir):
 		os.makedirs(save_dir)
 	
 	im_dir = "./images/viton"
-	c_dir = "./results/viton/c3dw-transparent"
+	c_dir = "./results/viton/c3dw"
 	im_parse_dir = "./results/viton/segmentation"
 	im_parse_vis_dir = "./results/viton/segmentation-vis"
 	

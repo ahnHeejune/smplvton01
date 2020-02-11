@@ -48,7 +48,7 @@ from smpl_webuser.verts import verts_decorated
 from render_model import render_model
 import inspect  # for debugging
 import matplotlib.pyplot as plt
-from opendr.lighting import SphericalHarmonics
+from opendr.lighting import SphericalHarmonics, LambertianPointLight
 from opendr.geometry import VertNormals, Rodrigues
 from opendr.renderer import TexturedRenderer
 
@@ -344,7 +344,7 @@ def construct_clothed3d_from_clothed2d_depth(body_sv, cam, clothed2d):
 # 2) normalize the vertices
 # optionally,
 # 3) coloring the backsize if face visibiltiy is not None)
-# ***note ****:   texture coordinate is UP-side Down, and x-y  nomalized
+# ***note ****:   texture coordinate is UP-side Down, and x-y  normalized
 # j
 def prepare_texture(imv2d, faces, im4texture, skin_color_b, skin_color_g, skin_color_r):
 
@@ -412,9 +412,19 @@ def prepare_texture_with_alpha(pjt_v, pjt_f, img, mask, target_label):
 
 def build_texture_renderer(U, V, f, vt, ft, texture, w, h, ambient=0.0, near=0.5, far=20000, background_image=None):
 
-    A = SphericalHarmonics(vn=VertNormals(v=V, f=f),
+    # add lighting
+    """A = SphericalHarmonics(vn=VertNormals(v=V, f=f),
                            components=[0., 0., 0., 0., 0., 0., 0., 0., 0.],
-                           light_color=ch.ones(3)) + ambient
+                           light_color=ch.ones(3)) + ambient"""
+
+    A = LambertianPointLight(
+        f=f,
+        v=V,
+        num_verts=len(V),
+        light_pos=ch.array([-500,-500,-500]),
+        vc=np.ones_like(V.r),
+        # light_color=ch.array([0.7, 0.7, 0.7])) + 0.3
+        light_color=ch.array([1.0, 1.0, 1.0])) + 0.5  # brighter
 
     if background_image is not None:
         R = TexturedRenderer(vc=A, camera=U, f=f, bgcolor=[0.0, 0.0, 0.0],
@@ -543,12 +553,12 @@ def compute_displacement_at_vertex(model, v0, d_global):
 
 #
 # get subset numpy 2-D array of triangles
-# whose all 3 vertices or one or them are included in the target vertext set
+# whose all 3 vertices or one or them are included in the target vertices set
 #
 #
 def getSubsetFaces(ifaces, set_v, smpl_model, allinclusion):
 
-    # get hand vertices
+    # get arm/hand vertices
     set_hand = []
     for i in range(smpl_model.shape[0]):
         if smpl_model.weights_prior[i][13] > 0 or smpl_model.weights_prior[i][14] > 0 or smpl_model.weights_prior[i][16] > 0 or smpl_model.weights_prior[i][17] > 0 or smpl_model.weights_prior[i][18] > 0 or smpl_model.weights_prior[i][19] > 0 or smpl_model.weights_prior[i][20] > 0 or smpl_model.weights_prior[i][21] > 0 or smpl_model.weights_prior[i][22] > 0 or smpl_model.weights_prior[i][23] > 0:
@@ -654,6 +664,62 @@ def cvt_joints_np2json(joints_np):
     return joints_json
 
 
+def get_skin_color_from_image(imBody, imBodySegm):
+    # neck/skin
+    skin_color_b = np.mean(imBody[imBodySegm[:, :, 0] == 20, 0])
+    skin_color_g = np.mean(imBody[imBodySegm[:, :, 1] == 20, 1])
+    skin_color_r = np.mean(imBody[imBodySegm[:, :, 2] == 20, 2])
+
+    print('skin color:', skin_color_r, skin_color_g, skin_color_b)
+    skin_color = np.mean([skin_color_b, skin_color_g, skin_color_r])
+
+    # face
+    kin_color_b = np.mean(imBody[imBodySegm[:, :, 0] == 13, 0])
+    kin_color_g = np.mean(imBody[imBodySegm[:, :, 1] == 13, 1])
+    kin_color_r = np.mean(imBody[imBodySegm[:, :, 2] == 13, 2])
+
+    print('face color:', kin_color_r, kin_color_g, kin_color_b)
+    face_color = np.mean([kin_color_b, kin_color_g, kin_color_r])
+
+    # left-arm
+    in_color_b = np.mean(imBody[imBodySegm[:, :, 0] == 14, 0])
+    in_color_g = np.mean(imBody[imBodySegm[:, :, 1] == 14, 1])
+    in_color_r = np.mean(imBody[imBodySegm[:, :, 2] == 14, 2])
+
+    print('left-arm color:', in_color_r, in_color_g, in_color_b)
+    larm_color = np.mean([in_color_b, in_color_g, in_color_r])
+
+    # right-arm
+    n_color_b = np.mean(imBody[imBodySegm[:, :, 0] == 15, 0])
+    n_color_g = np.mean(imBody[imBodySegm[:, :, 1] == 15, 1])
+    n_color_r = np.mean(imBody[imBodySegm[:, :, 2] == 15, 2])
+
+    print('right-arm color:', n_color_r, n_color_g, n_color_b)
+    rarm_color = np.mean([n_color_b, n_color_g, n_color_r])
+
+    brightest_color = np.max([skin_color, face_color, larm_color, rarm_color])
+
+    if face_color == brightest_color:
+        skin_color_b = kin_color_b
+        skin_color_g = kin_color_g
+        skin_color_r = kin_color_r
+        print("face color is chosen.")
+    elif larm_color == brightest_color:
+        skin_color_b = in_color_b
+        skin_color_g = in_color_g
+        skin_color_r = in_color_r
+        print("left-arm color is chosen.")
+    elif rarm_color == brightest_color:
+        skin_color_b = n_color_b
+        skin_color_g = n_color_g
+        skin_color_r = n_color_r
+        print("right-arm color is chosen.")
+    else:
+        print("skin color is chosen.")
+
+    return skin_color_b, skin_color_g, skin_color_r
+
+
 #
 #  cloth 3D model reconstrction  using  2d cloth (mapped onto template) and template
 #
@@ -681,12 +747,8 @@ def cloth3drec_core(model,    # SMPL model
     if len(imClothMask.shape) > 2:  # ie. 3 ch  to 1 ch
         imClothMask = cv2.cvtColor(imClothMask, cv2.COLOR_BGR2GRAY)
 
-    # get skin color
-    skin_color_b = np.mean(imBody[imBodySegm[:, :, 0] == 20, 0])
-    skin_color_g = np.mean(imBody[imBodySegm[:, :, 1] == 20, 1])
-    skin_color_r = np.mean(imBody[imBodySegm[:, :, 2] == 20, 2])
-
-    print('skin color:', skin_color_r, skin_color_g, skin_color_b)
+    # get skin/face color for hand/skin area painting
+    skin_color_b, skin_color_g, skin_color_r = get_skin_color_from_image(imBody, imBodySegm)
 
     print(imBodySegm.shape)
     print(len(imBodySegm.shape))
