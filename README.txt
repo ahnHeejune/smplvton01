@@ -4,7 +4,8 @@ SMPL model based 3D cloth shape recovery and virtual Try on Project
 ------------------------------------------------------------------------
 
 PI: Heejune AHN (SeoulTech)
-CoI:  Matiur R  (SeoulTech), Paul Rosin (Cardiff U), Yukun Lai (Cardiff U)
+CoI:  Matiur Rahman Minar (SeoulTech), Thai Thanh Tuan (SeoulTech)  Paul Rosin (Cardiff U), Yukun Lai (Cardiff U)
+Project page: https://minar09.github.io/c3dvton/
 
 ------------------------------------------------------------------------
 
@@ -308,3 +309,19 @@ Note:
  2109  git push -u origin master
 
 
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+ Citation
+
+////////////////////////////////////////////////////////////////////////////////////////////
+Please cite our paper in your publications if it helps your research:
+
+
+@InProceedings{Minar_C3DVTON_2020_CVPR_Workshops,
+    title={3D Reconstruction of Clothes using a Human Body Model and its Application to Image-based Virtual Try-On},
+    author={Minar, Matiur Rahman and Thai Thanh Tuan and Ahn, Heejune and Rosin, Paul and Lai, Yu-Kun},
+    booktitle = {The IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
+    month = {June},
+    year={2020}
+}
