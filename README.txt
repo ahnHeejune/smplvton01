@@ -6,6 +6,7 @@ SMPL model based 3D cloth shape recovery and virtual Try on Project
 PI: Heejune AHN (SeoulTech)
 CoI:  Matiur Rahman Minar (SeoulTech), Thai Thanh Tuan (SeoulTech)  Paul Rosin (Cardiff U), Yukun Lai (Cardiff U)
 Project page: https://minar09.github.io/c3dvton/
+Paper: 3D Reconstruction of Clothes using a Human Body Model and its Application to Image-based Virtual Try-On (CVPRW 2020)
 
 ------------------------------------------------------------------------
 
