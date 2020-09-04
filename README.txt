@@ -307,20 +307,3 @@ Note:
  2108  git remote add origin https://github.com/ahnHeejune/smplvton01.git
  2109  git push -u origin master
 
-
-
-////////////////////////////////////////////////////////////////////////////////////////////
-
- Citation
-
-////////////////////////////////////////////////////////////////////////////////////////////
-Please cite our paper in your publications if it helps your research:
-
-
-@InProceedings{Minar_C3DVTON_2020_CVPR_Workshops,
-    title={3D Reconstruction of Clothes using a Human Body Model and its Application to Image-based Virtual Try-On},
-    author={Minar, Matiur Rahman and Thai Thanh Tuan and Ahn, Heejune and Rosin, Paul and Lai, Yu-Kun},
-    booktitle = {The IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
-    month = {June},
-    year={2020}
-}
